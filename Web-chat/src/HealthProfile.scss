@@ -1,0 +1,139 @@
+.health-profile-page {
+    .health-profile-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: #fff;
+      padding: 20px;
+      gap: 20px; 
+    }
+  
+    
+    .health-profile {
+      display: flex;
+      justify-content: space-between; 
+      width: 100%;
+      max-width: 1200px;  
+      gap: 20px;         
+    }
+  
+    .health-section,
+    .current-info-section,
+    .device-data-summary {
+      width: 100%;             
+      max-width: 1200px;        // Set uniform width for side-by-side sections (Health Profile + Current Info)
+      min-height: 400px;        
+      padding: 30px;           
+      margin: 0;                
+      background-color: #004080;
+      border-radius: 10px;
+      color: #fff;
+      box-sizing: border-box;  
+      display: flex;
+      flex-direction: column;  
+      overflow: auto;         
+    }
+  
+    /* Device Data Summary Section */
+    .device-data-summary {
+      width: 100%;              // Full width relative to container
+      max-width: 1200px;        // Same maximum width as the container for consistency
+      //padding: 30px;            // Increased padding for consistency
+      margin: 0;                // Remove extra margin
+      background-color: #004080;
+      border-radius: 10px;
+      color: #fff;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;   // Align the content properly
+      font-size: 1rem;          // Standard font size
+      line-height: 1.5;         // Line height for readability
+      overflow: hidden;         // Prevent scroll and extra space
+      min-height: 400px;        // Fixed height for consistency
+      max-height: 400px;        // Avoid overflow
+    }
+  
+    
+    .health-profile-container,
+    .health-profile,
+    .device-data-summary {
+      padding-left: 0;  // Remove padding from left side
+      margin-left: 0;   // Remove left margin
+    }
+  
+    .input-container {
+      margin-bottom: 20px;      // Increased spacing between inputs
+  
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+  
+      input,
+      textarea {
+        width: 100%;
+        padding: 10px;          // Increased padding for larger input fields
+        border: none;
+        border-radius: 5px;
+        font-size: 1rem;        // Increased font size for better readability
+      }
+
+    }
+  
+    input:focus,
+    textarea:focus {
+      outline: none;
+    }
+    /* Health Profile Checkboxes Section */
+.checkbox-container {
+  display: grid;
+  grid-template-columns: 1fr 1fr; 
+}
+.checkbox-item input[type=".checkbox-container"] {
+  margin-top: 15px;
+}
+.checkbox-right{
+  margin-left: 20px;
+}
+
+    .summary-display {
+        font-family: Arial, sans-serif;
+        line-height: 1.5;
+      }
+      
+      .summary-display strong {
+        font-weight: bold;
+      }
+    button {
+      background-color: #005bb5;
+      color: #fff;
+      border: none;
+      padding: 15px 25px;        // Larger button for better visibility
+      border-radius: 5px;
+      font-size: 1.2rem;         // Larger font size
+      cursor: pointer;
+    }
+  
+    button:hover {
+      background-color: #005bb5;
+    }
+  
+    .go-to-chatbox-button {
+      position: fixed; 
+      top: 10px;
+      right: 30px;
+      padding: 15px 25px;       // Larger button size
+      color: rgb(7, 6, 6);
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  
+      &:hover {
+        background-color: #0056b3; // Darker shade when hovered
+      }
+    }
+  }
+  
