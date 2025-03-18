@@ -6,15 +6,9 @@ import {
   InvokeAgentCommand,
 } from "@aws-sdk/client-bedrock-agent-runtime";
 import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-// Configure path to .env file
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 // Load environment variables
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+dotenv.config();
 
 // Initialize Express app
 const app = express();
@@ -22,23 +16,16 @@ const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3001'], 
+  origin: '*', // In production, limit this to your frontend's URL
   methods: ['GET', 'POST'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json());
 
-// AWS Bedrock Agent configuration
-const AGENT_ID = process.env.AGENT_ID;
-const AGENT_ALIAS_ID = process.env.AGENT_ALIAS_ID;
+// AWS Bedrock Agent configuration - use env vars or fallback to hardcoded values
+const AGENT_ID = process.env.AGENT_ID || "AJBHXXILZN";
+const AGENT_ALIAS_ID = process.env.AGENT_ALIAS_ID || "AVKP1ITZAA";
 const AWS_REGION = process.env.AWS_REGION || "us-east-1";
-
-
-
-// Helper function to generate a session ID
-function generateSessionId() {
-  return 'session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 15);
-}
 
 /**
  * Invokes a Bedrock agent to run an inference using the input
@@ -48,35 +35,29 @@ function generateSessionId() {
  * @param {string} sessionId - An arbitrary identifier for the session.
  */
 const invokeBedrockAgent = async (prompt, sessionId) => {
-  // Ensure sessionId is never null - use a generated ID if not provided
-  const safeSessionId = sessionId || generateSessionId();
+  // Create client with region from env vars or credentials if provided
+  let clientConfig = { region: AWS_REGION };
   
-  // Create client with explicit credentials
-  const clientConfig = { 
-    region: AWS_REGION,
-    credentials: {
+  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+    clientConfig.credentials = {
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
-    }
-  };
-  
-  // Add session token if it exists (for temporary credentials)
-  if (process.env.AWS_SESSION_TOKEN) {
-    clientConfig.credentials.sessionToken = process.env.AWS_SESSION_TOKEN;
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    };
   }
   
   const client = new BedrockAgentRuntimeClient(clientConfig);
   
+  // Generate a session ID if none is provided
+  const finalSessionId = sessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+  
   const command = new InvokeAgentCommand({
-    agentId: process.env.AGENT_ID,
-    agentAliasId: process.env.AGENT_ALIAS_ID,
-    sessionId: safeSessionId,  // Use the safe session ID
+    agentId: AGENT_ID,
+    agentAliasId: AGENT_ALIAS_ID,
+    sessionId: finalSessionId,
     inputText: prompt,
   });
   
   try {
-    console.log(`Using session ID: ${safeSessionId}`);
-    
     let completion = "";
     const response = await client.send(command);
     
@@ -90,12 +71,17 @@ const invokeBedrockAgent = async (prompt, sessionId) => {
       completion += decodedResponse;
     }
     
-    return { sessionId: safeSessionId, completion };
+    return { sessionId: finalSessionId, completion };
   } catch (err) {
     console.error("Error in invokeBedrockAgent:", err);
     throw err;
   }
 };
+
+// Helper function to generate a session ID if none provided
+function generateSessionId() {
+  return 'session-' + Date.now() + '-' + Math.random().toString(36).substring(2, 15);
+}
 
 // Test Route
 app.get("/", (req, res) => {
@@ -105,20 +91,19 @@ app.get("/", (req, res) => {
 // Chat Route
 app.post("/chat", async (req, res) => {
   try {
-    const { question, sessionId } = req.body;
+    const { question } = req.body;
+    // Ensure we always have a valid sessionId
+    const sessionId = req.body.sessionId || generateSessionId();
 
     if (!question) {
       return res.status(400).json({ error: "Missing question in request body." });
     }
 
-    // Generate a session ID if one is not provided
-    const chatSessionId = sessionId || generateSessionId();
-    
     console.log(`Invoking agent ${AGENT_ID} (alias: ${AGENT_ALIAS_ID})`);
-    console.log(`Session ID: ${chatSessionId}`);
+    console.log(`Session ID: ${sessionId}`);
     console.log(`Question: ${question}`);
     
-    const result = await invokeBedrockAgent(question, chatSessionId);
+    const result = await invokeBedrockAgent(question, sessionId);
     
     res.json({
       response: result.completion,
