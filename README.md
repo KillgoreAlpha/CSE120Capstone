@@ -11,7 +11,11 @@ Start by running `cd backend` to enter the backend folder.
 npm install
 ```
 
-This will install the dependencies to run the backend. Then run `node server.js` to start the backend server.
+Also please create a `.env` file where you add ```
+VITE_REDIRECT_URI=http://localhost:5173
+```
+
+This will install the dependencies to run the backend and update the dependincies. Then run `node server.js` to start the backend server.
 
 ## Running the front end
 **DO NOT TERMINATE/CLOSE THE TERMINAL RUNNING THE BACKEND** Open a new one instead. Run `cd ..` to go back to the project root. Then run `cd frontend` to enter the frontend folder.

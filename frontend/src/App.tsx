@@ -11,7 +11,9 @@ import {
   Modal,
   Card,
   Spin,
-  message
+  message,
+  List,
+  Empty
 } from 'antd';
 import {
   SendOutlined,
@@ -20,19 +22,38 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   LoginOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  HistoryOutlined,
+  MessageOutlined
 } from '@ant-design/icons';
 
 const { Header, Sider, Content } = Layout;
 const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
 
+interface ChatSession {
+  sessionId: string;
+  title: string;
+  timestamp: string;
+  messageCount: number;
+}
+
+interface ChatMessage {
+  role: string;
+  content: string;
+  timestamp?: string;
+}
+
+const API_BASE_URL = 'http://localhost:3000';
+
 const App = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [messages, setMessages] = useState<{ role: string; content: string }[]>([]);
-  const [sessionId, setSessionId] = useState(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
+  const [loadingChatSessions, setLoadingChatSessions] = useState(false);
   const auth = useAuth();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -45,15 +66,102 @@ const App = () => {
     scrollToBottom();
   }, [messages]);
 
+  // Fetch chat sessions when user is authenticated
+  useEffect(() => {
+    if (auth.isAuthenticated && auth.user) {
+      fetchChatSessions();
+    }
+  }, [auth.isAuthenticated, auth.user]);
+
+  const fetchChatSessions = async () => {
+    if (!auth.user) return;
+    
+    setLoadingChatSessions(true);
+    try {
+      const userId = getUserId(auth.user);
+      const response = await fetch(`${API_BASE_URL}/chat-sessions/${userId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch chat sessions');
+      }
+      
+      const data = await response.json();
+      setChatSessions(data.chatSessions || []);
+    } catch (error) {
+      console.error('Error fetching chat sessions:', error);
+      message.error('Failed to load chat history');
+    } finally {
+      setLoadingChatSessions(false);
+    }
+  };
+
+  const fetchChatHistory = async (sessionId: string) => {
+    if (!auth.user) return;
+    
+    setIsLoading(true);
+    try {
+      const userId = getUserId(auth.user);
+      const response = await fetch(`${API_BASE_URL}/chat-history/${userId}/${sessionId}`);
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch chat history');
+      }
+      
+      const data = await response.json();
+      setMessages(data.messages || []);
+      setSessionId(data.sessionId);
+    } catch (error) {
+      console.error('Error fetching chat history:', error);
+      message.error('Failed to load chat conversation');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const getUserId = (user: any): string => {
+    // Use sub claim as unique user identifier
+    return user.profile.sub || user.profile["cognito:username"] || user.profile.email || 'anonymous';
+  };
+
   const toggleSider = () => {
     setCollapsed(!collapsed);
   };
 
+  // Get a display name from the user profile
+  const getUserDisplayName = (profile) => {
+    if (!profile) return 'User';
+    
+    // Try to get name from cognito:username (remove any numeric suffixes if present)
+    const username = profile["cognito:username"];
+    if (username) {
+      // Clean up username if needed (e.g., remove numbers at the end, capitalize)
+      const cleanUsername = username.replace(/[0-9]+$/, '');
+      return cleanUsername.charAt(0).toUpperCase() + cleanUsername.slice(1);
+    }
+    
+    // Fallback to email prefix
+    if (profile.email) {
+      const emailName = profile.email.split('@')[0];
+      // Capitalize and clean up email prefix
+      return emailName.charAt(0).toUpperCase() + emailName.slice(1).replace(/[0-9]+$/, '');
+    }
+    
+    return 'User';
+  };
+
   const signOutRedirect = () => {
+    // AWS Cognito client ID
     const clientId = "7n7tk1jf3cvp2u5ftdodr7h36l";
-    const logoutUri = import.meta.env.VITE_REDIRECT_URI;
+    const logoutUri = import.meta.env.VITE_REDIRECT_URI || window.location.origin;
     const cognitoDomain = "https://us-east-2hmaeqapn8.auth.us-east-2.amazoncognito.com";
-    window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}`;
+    
+    // Clear the session and local auth state
+    auth.removeUser();
+    sessionStorage.clear();
+    localStorage.clear();
+    
+    // Redirect to Cognito logout with client_id and redirect URI
+    window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}&redirect_uri=${encodeURIComponent(logoutUri)}`;
   };
 
   const handleSendMessage = async () => {
@@ -70,14 +178,18 @@ const App = () => {
     setIsLoading(true);
     
     try {
-      const response = await fetch('http://localhost:3000/chat', {
+      // Get user ID for chat history tracking
+      const userId = auth.user ? getUserId(auth.user) : null;
+      
+      const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           question: userMessage,
-          sessionId: sessionId
+          sessionId: sessionId,
+          userId: userId
         }),
       });
       
@@ -95,6 +207,12 @@ const App = () => {
       // Add assistant response to chat
       const assistantMessageObj = { role: 'assistant', content: data.response };
       setMessages(prev => [...prev, assistantMessageObj]);
+      
+      // Refresh chat sessions list if this is a new chat
+      if (auth.isAuthenticated && (!sessionId || sessionId !== data.sessionId)) {
+        // Wait a bit for the backend to save the chat before fetching
+        setTimeout(() => fetchChatSessions(), 500);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       message.error('Failed to send message. Please try again.');
@@ -120,6 +238,10 @@ const App = () => {
   const startNewChat = () => {
     setMessages([]);
     setSessionId(null);
+  };
+  
+  const loadChatSession = (sessionId: string) => {
+    fetchChatHistory(sessionId);
   };
 
   const blurStyle = !auth.isAuthenticated ? {
@@ -237,9 +359,14 @@ const App = () => {
           )}
           <Avatar icon={<UserOutlined />} />
           {auth.isAuthenticated && (
-            <Text style={{ marginLeft: 8 }} ellipsis>
-              {auth.user?.profile.email}
-            </Text>
+            <div style={{ marginLeft: 8, display: 'flex', flexDirection: 'column' }}>
+              <Text strong ellipsis>
+                {getUserDisplayName(auth.user?.profile)}
+              </Text>
+              <Text type="secondary" style={{ fontSize: '12px' }} ellipsis>
+                {auth.user?.profile.email}
+              </Text>
+            </div>
           )}
         </Space>
       </Header>
@@ -266,17 +393,61 @@ const App = () => {
             >
               {!collapsed && 'New chat'}
             </Button>
+            
+            {!collapsed && (
+              <div style={{ margin: '16px 8px 8px 8px' }}>
+                <Space align="center">
+                  <HistoryOutlined />
+                  <Text strong>Chat History</Text>
+                </Space>
+              </div>
+            )}
           </div>
 
-          <Menu
-            mode="inline"
-            style={{ background: '#f0f2f5', border: 'none' }}
-            items={[
-              { key: '1', label: 'Previous chat 1' },
-              { key: '2', label: 'Previous chat 2' },
-              { key: '3', label: 'Previous chat 3' },
-            ]}
-          />
+          {loadingChatSessions ? (
+            <div style={{ padding: '24px', textAlign: 'center' }}>
+              <Spin size="small" />
+              <div style={{ marginTop: '8px' }}>
+                <Text type="secondary">Loading chats...</Text>
+              </div>
+            </div>
+          ) : chatSessions.length === 0 ? (
+            <Empty
+              image={Empty.PRESENTED_IMAGE_SIMPLE}
+              description="No chat history yet"
+              style={{ margin: '24px 0' }}
+            />
+          ) : (
+            <List
+              itemLayout="horizontal"
+              dataSource={chatSessions}
+              style={{ 
+                background: '#f0f2f5', 
+                border: 'none',
+                padding: '0 16px'
+              }}
+              renderItem={(item) => (
+                <List.Item
+                  style={{ 
+                    padding: '8px 0',
+                    cursor: 'pointer',
+                    borderBottom: '1px solid #f0f0f0'
+                  }}
+                  onClick={() => loadChatSession(item.sessionId)}
+                >
+                  <List.Item.Meta
+                    avatar={<Avatar icon={<MessageOutlined />} size="small" />}
+                    title={<Text style={{ fontSize: '14px' }} ellipsis>{item.title}</Text>}
+                    description={
+                      <Text type="secondary" style={{ fontSize: '12px' }}>
+                        {new Date(item.timestamp).toLocaleDateString()} • {item.messageCount} messages
+                      </Text>
+                    }
+                  />
+                </List.Item>
+              )}
+            />
+          )}
         </Sider>
 
         <Content style={{
