@@ -191,8 +191,6 @@ function importBiomarkerDataFromCSV() {
     return false;
   }
   
-  console.log(`Importing biomarker data from ${csvFilePath}`);
-  
   return new Promise((resolve, reject) => {
     let rowsProcessed = 0;
     let rowsImported = 0;
@@ -218,7 +216,6 @@ function importBiomarkerDataFromCSV() {
         return true; // Count as imported
       },
       (processed, imported) => {
-        console.log(`Successfully processed ${processed} rows and imported ${imported} rows`);
         resolve({ processed, imported });
       },
       (error) => {
@@ -231,14 +228,11 @@ function importBiomarkerDataFromCSV() {
 
 // Function to seed health conditions data
 function seedHealthConditionsData() {
-  console.log("Seeding health conditions data...");
-  
   // First, check if we have any existing data
   const existingCount = statements.conditions.count.get();
   
   // Only seed if the table is empty
   if (existingCount.count === 0) {
-    console.log("No existing health conditions data found, seeding now...");
     
     // Let's create seed data for a few different users
     const sampleUsers = [
@@ -298,13 +292,109 @@ function seedHealthConditionsData() {
       }
     }
     
-    console.log(`Successfully seeded ${insertedCount} health condition records`);
     return insertedCount;
   } else {
-    console.log(`Health conditions table already has ${existingCount.count} records, skipping seeding`);
     return 0;
   }
 }
+
+/**
+ * Checks if the user prompt contains keywords related to health data.
+ * @param {string} prompt - The user's prompt/question text
+ * @returns {boolean} - True if the prompt contains health data keywords
+ */
+const containsHealthDataKeywords = (prompt) => {
+  if (!prompt) return false;
+  
+  // Convert to lowercase for case-insensitive matching
+  const lowerPrompt = prompt.toLowerCase();
+  
+  // Define keywords related to health data
+  const healthKeywords = [
+    'my data', 'my health', 'my biomarkers', 'biomarkers', 
+    'health data', 'my health data', 'my readings', 'my metrics',
+    'cortisol', 'lactate', 'uric acid', 'crp', 'il6', 'il-6',
+    'body temperature', 'heart rate', 'blood oxygen', 'my levels',
+    'my stats', 'my health stats', 'my health statistics'
+  ];
+  
+  // Check if any keyword is present in the prompt
+  return healthKeywords.some(keyword => lowerPrompt.includes(keyword));
+};
+
+/**
+ * Retrieves recent health data for the user.
+ * @returns {object} - Object containing the user's health data
+ */
+const getRecentHealthData = () => {
+  try {
+    // Get the last 20 readings from the database
+    const recentReadings = db.prepare(`
+      SELECT * FROM healthReadings 
+      ORDER BY timestamp DESC 
+      LIMIT 20
+    `).all();
+    
+    if (!recentReadings || recentReadings.length === 0) {
+      return { noData: true };
+    }
+    
+    // Calculate averages for each biomarker
+    const biomarkers = [
+      'cortisol_base', 'lactate_base', 'uric_acid_base', 'crp_base', 
+      'il6_base', 'body_temp_base', 'heart_rate_base', 'blood_oxygen_base'
+    ];
+    
+    const averages = {};
+    const trends = {};
+    
+    biomarkers.forEach(biomarker => {
+      const values = recentReadings
+        .map(reading => reading[biomarker])
+        .filter(val => val !== null && val !== undefined);
+      
+      if (values.length > 0) {
+        // Calculate average
+        const sum = values.reduce((acc, val) => acc + val, 0);
+        averages[biomarker] = sum / values.length;
+        
+        // Determine trend based on first half vs second half
+        if (values.length >= 4) {
+          const midpoint = Math.floor(values.length / 2);
+          const firstHalf = values.slice(midpoint); // More recent values (reversed order)
+          const secondHalf = values.slice(0, midpoint); // Older values
+          
+          const firstHalfAvg = firstHalf.reduce((acc, val) => acc + val, 0) / firstHalf.length;
+          const secondHalfAvg = secondHalf.reduce((acc, val) => acc + val, 0) / secondHalf.length;
+          
+          const percentChange = ((firstHalfAvg - secondHalfAvg) / secondHalfAvg) * 100;
+          
+          if (percentChange > 5) {
+            trends[biomarker] = "increasing";
+          } else if (percentChange < -5) {
+            trends[biomarker] = "decreasing";
+          } else {
+            trends[biomarker] = "stable";
+          }
+        } else {
+          trends[biomarker] = "insufficient data";
+        }
+      }
+    });
+    
+    return {
+      readings: recentReadings.slice(0, 5), // Just the 5 most recent readings
+      averages,
+      trends,
+      readingCount: recentReadings.length,
+      startDate: recentReadings[recentReadings.length - 1].timestamp,
+      endDate: recentReadings[0].timestamp
+    };
+  } catch (error) {
+    console.error("Error getting recent health data:", error);
+    return { error: error.message };
+  }
+};
 
 /**
  * Invokes a Bedrock agent to run an inference using the input
@@ -312,8 +402,9 @@ function seedHealthConditionsData() {
  *
  * @param {string} prompt - The prompt that you want the Agent to complete.
  * @param {string} sessionId - An arbitrary identifier for the session.
+ * @param {object} [additionalContext] - Optional additional context/data to include
  */
-const invokeBedrockAgent = async (prompt, sessionId) => {
+const invokeBedrockAgent = async (prompt, sessionId, additionalContext = null) => {
   // Create client with region from env vars or credentials if provided
   let clientConfig = { region: AWS_REGION };
   
@@ -329,11 +420,18 @@ const invokeBedrockAgent = async (prompt, sessionId) => {
   // Generate a session ID if none is provided
   const finalSessionId = sessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
   
+  // Prepare the input text - include health data if provided
+  let inputText = prompt;
+  
+  if (additionalContext && additionalContext.healthData) {
+    inputText += `\n\n===USER HEALTH DATA===\n${JSON.stringify(additionalContext.healthData, null, 2)}\n===END USER HEALTH DATA===`;
+  }
+  
   const command = new InvokeAgentCommand({
     agentId: AGENT_ID,
     agentAliasId: AGENT_ALIAS_ID,
     sessionId: finalSessionId,
-    inputText: prompt,
+    inputText: inputText,
   });
   
   try {
@@ -523,12 +621,22 @@ app.post("/chat", async (req, res) => {
       saveChatMessage(userId, sessionId, userMessage);
     }
 
-    console.log(`Invoking agent ${AGENT_ID} (alias: ${AGENT_ALIAS_ID})`);
-    console.log(`Session ID: ${sessionId}`);
-    console.log(`User ID: ${userId || 'anonymous'}`);
-    console.log(`Question: ${question}`);
+    // Check if the question contains health data keywords
+    const includeHealthData = containsHealthDataKeywords(question);
+    let additionalContext = null;
     
-    const result = await invokeBedrockAgent(question, sessionId);
+    if (includeHealthData) {
+      const healthData = getRecentHealthData();
+      
+      if (healthData && !healthData.error && !healthData.noData) {
+        additionalContext = { healthData };
+      } else if (healthData.error) {
+        console.error("Error getting health data:", healthData.error);
+      }
+    }
+    
+    // Invoke the Bedrock agent with or without health data
+    const result = await invokeBedrockAgent(question, sessionId, additionalContext);
     
     // If userId is provided, save the assistant response
     if (userId) {
@@ -539,9 +647,11 @@ app.post("/chat", async (req, res) => {
       saveChatMessage(userId, sessionId, assistantMessage);
     }
     
+    // For debugging, you can include in the response whether health data was included
     res.json({
       response: result.completion,
-      sessionId: result.sessionId
+      sessionId: result.sessionId,
+      healthDataIncluded: !!additionalContext
     });
   } catch (error) {
     console.error("AWS Bedrock Agent Error:", error);
@@ -797,44 +907,6 @@ app.delete("/conditions/:id", (req, res) => {
   }
 });
 
-// Forward chat requests to AWS server
-app.post("/chat", async (req, res) => {
-  try {
-    const { question, userId, sessionId } = req.body;
-    
-    if (!question) {
-      return res.status(400).json({ error: "Missing question parameter" });
-    }
-    
-    // Build request payload for AWS
-    const payload = {
-      question,
-      userId: userId || 'anonymous',
-      sessionId: sessionId || undefined
-    };
-    
-    // Determine AWS server URL from environment variables or use default
-    const awsServerUrl = process.env.AWS_SERVER_URL || 'http://localhost:3000/chat';
-    
-    // Send request to AWS server
-    const response = await axios.post(awsServerUrl, payload);
-    
-    res.json({
-      reply: response.data.response || response.data.completion,
-      sessionId: response.data.sessionId,
-      message: "Response from AWS Bedrock Agent"
-    });
-  } catch (error) {
-    console.error("Error forwarding chat to AWS:", error);
-    
-    // Fallback response if AWS is not available
-    res.json({
-      reply: "AI chat functionality encountered an error. Your question was: " + req.body.question,
-      message: "This is a fallback response. AWS server might be unavailable."
-    });
-  }
-});
-
 // Close the database when the app is terminated
 process.on('SIGINT', () => {
   db.close();
@@ -865,17 +937,10 @@ app.post("/import-biomarker-data", async (req, res) => {
 (async () => {
   try {
     // First import biomarker data
-    console.log("Attempting to import biomarker data on startup...");
-    const biomarkerResult = await importBiomarkerDataFromCSV();
-    if (biomarkerResult) {
-      console.log(`Startup import: Processed ${biomarkerResult.processed} rows and imported ${biomarkerResult.imported} rows`);
-    }
+    await importBiomarkerDataFromCSV();
     
     // Then seed health conditions
-    const seedResult = seedHealthConditionsData();
-    if (seedResult > 0) {
-      console.log(`Startup seed: Added ${seedResult} health condition records`);
-    }
+    seedHealthConditionsData();
   } catch (error) {
     console.error("Error during startup data operations:", error);
   }
@@ -887,7 +952,8 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+
 // Start the server
 app.listen(3000, () => {
-  console.log("🚀 Server running on http://localhost:3000");
+  console.log("Server started successfully on port 3000");
 });
