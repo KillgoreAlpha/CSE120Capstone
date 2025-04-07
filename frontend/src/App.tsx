@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from "react-oidc-context";
 import {
   Layout,
-  Menu,
   Input,
   Button,
   Avatar,
@@ -128,11 +127,22 @@ const App = () => {
   };
 
   // Get a display name from the user profile
-  const getUserDisplayName = (profile) => {
+  interface UserProfile {
+    authenticated?: string;
+    email?: string;
+    name?: string;
+    given_name?: string;
+    family_name?: string;
+    sub?: string;
+    "cognito:username"?: string;
+    [key: string]: any;
+  }
+
+  const getUserDisplayName = (profile?: UserProfile): string => {
     if (!profile) return 'User';
     
     // Try to get name from cognito:username (remove any numeric suffixes if present)
-    const username = profile["cognito:username"];
+    const username = profile.authenticated;
     if (username) {
       // Clean up username if needed (e.g., remove numbers at the end, capitalize)
       const cleanUsername = username.replace(/[0-9]+$/, '');
