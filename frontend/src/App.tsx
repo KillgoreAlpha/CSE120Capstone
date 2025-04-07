@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from "react-oidc-context";
 import {
   Layout,
-  Input,
   Button,
   Avatar,
   Typography,
@@ -12,10 +11,9 @@ import {
   Spin,
   message,
   List,
-  Empty
+  Empty,
 } from 'antd';
 import {
-  SendOutlined,
   PlusOutlined,
   UserOutlined,
   MenuFoldOutlined,
@@ -26,8 +24,11 @@ import {
   MessageOutlined
 } from '@ant-design/icons';
 
+// Import our components
+import HealthDashboard from './components/HealthDashboard';
+import ChatPanel from './components/ChatPanel';
+
 const { Header, Sider, Content } = Layout;
-const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
 
 interface ChatSession {
@@ -47,23 +48,12 @@ const API_BASE_URL = 'http://localhost:3000';
 
 const App = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [loadingChatSessions, setLoadingChatSessions] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
   const auth = useAuth();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Function to scroll to bottom of messages
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   // Fetch chat sessions when user is authenticated
   useEffect(() => {
@@ -97,7 +87,6 @@ const App = () => {
   const fetchChatHistory = async (sessionId: string) => {
     if (!auth.user) return;
     
-    setIsLoading(true);
     try {
       const userId = getUserId(auth.user);
       const response = await fetch(`${API_BASE_URL}/chat-history/${userId}/${sessionId}`);
@@ -109,11 +98,10 @@ const App = () => {
       const data = await response.json();
       setMessages(data.messages || []);
       setSessionId(data.sessionId);
+      setChatExpanded(true);
     } catch (error) {
       console.error('Error fetching chat history:', error);
       message.error('Failed to load chat conversation');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -174,84 +162,18 @@ const App = () => {
     window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}&redirect_uri=${encodeURIComponent(logoutUri)}`;
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
-    
-    const userMessage = inputValue.trim();
-    setInputValue('');
-    
-    // Add user message to chat
-    const userMessageObj = { role: 'user', content: userMessage };
-    setMessages(prev => [...prev, userMessageObj]);
-    
-    // Set loading state
-    setIsLoading(true);
-    
-    try {
-      // Get user ID for chat history tracking
-      const userId = auth.user ? getUserId(auth.user) : null;
-      
-      const response = await fetch(`${API_BASE_URL}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: userMessage,
-          sessionId: sessionId,
-          userId: userId
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      
-      const data = await response.json();
-      
-      // Save the session ID for future requests
-      if (data.sessionId && !sessionId) {
-        setSessionId(data.sessionId);
-      }
-      
-      // Add assistant response to chat
-      const assistantMessageObj = { role: 'assistant', content: data.response };
-      setMessages(prev => [...prev, assistantMessageObj]);
-      
-      // Refresh chat sessions list if this is a new chat
-      if (auth.isAuthenticated && (!sessionId || sessionId !== data.sessionId)) {
-        // Wait a bit for the backend to save the chat before fetching
-        setTimeout(() => fetchChatSessions(), 500);
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      message.error('Failed to send message. Please try again.');
-      
-      // Add error message to chat
-      const errorMessageObj = { 
-        role: 'assistant', 
-        content: 'Sorry, I encountered an error processing your request. Please try again.' 
-      };
-      setMessages(prev => [...prev, errorMessageObj]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: { key: string; shiftKey: any; preventDefault: () => void; }) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   const startNewChat = () => {
     setMessages([]);
     setSessionId(null);
+    setChatExpanded(true);
   };
   
   const loadChatSession = (sessionId: string) => {
     fetchChatHistory(sessionId);
+  };
+
+  const toggleChatExpanded = () => {
+    setChatExpanded(!chatExpanded);
   };
 
   const blurStyle = !auth.isAuthenticated ? {
@@ -461,6 +383,7 @@ const App = () => {
         </Sider>
 
         <Content style={{
+          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           background: '#fff',
@@ -468,141 +391,29 @@ const App = () => {
           overflow: 'hidden',
           ...blurStyle
         }}>
-          <div style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            {messages.length === 0 ? (
-              <div style={{ 
-                flex: 1, 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center' 
-              }}>
-                <Text type="secondary">
-                  How can I help you today?
-                </Text>
-              </div>
-            ) : (
-              <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                {messages.map((msg, index) => (
-                  <div 
-                    key={index} 
-                    style={{ 
-                      marginBottom: '16px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
-                    }}
-                  >
-                    <Card 
-                      style={{ 
-                        maxWidth: '80%',
-                        background: msg.role === 'user' ? '#e6f7ff' : '#f5f5f5',
-                        borderRadius: '8px',
-                      }}
-                      bodyStyle={{ padding: '12px 16px' }}
-                    >
-                      <div style={{ 
-                        display: 'flex',
-                        marginBottom: '4px'
-                      }}>
-                        <Avatar 
-                          size="small" 
-                          icon={msg.role === 'user' ? <UserOutlined /> : null}
-                          src={msg.role === 'assistant' ? "https://static.wixstatic.com/media/1a1b30_ffdd9eff1dba4c6896bdd859e4bc9839~mv2.png/v1/fill/w_120,h_90,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo.png" : null}
-                          style={{ marginRight: '8px' }}
-                        />
-                        <Text strong>{msg.role === 'user' ? 'You' : 'X10e'}</Text>
-                      </div>
-                      <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                        {msg.content}
-                      </Paragraph>
-                    </Card>
-                  </div>
-                ))}
-                {isLoading && (
-                  <div style={{ 
-                    marginBottom: '16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start'
-                  }}>
-                    <Card
-                      style={{
-                        maxWidth: '80%',
-                        background: '#f5f5f5',
-                        borderRadius: '8px',
-                      }}
-                      bodyStyle={{ padding: '12px 16px' }}
-                    >
-                      <div style={{ display: 'flex', marginBottom: '4px' }}>
-                        <Avatar 
-                          size="small" 
-                          src="https://static.wixstatic.com/media/1a1b30_ffdd9eff1dba4c6896bdd859e4bc9839~mv2.png/v1/fill/w_120,h_90,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo.png"
-                          style={{ marginRight: '8px' }}
-                        />
-                        <Text strong>X10e</Text>
-                      </div>
-                      <Spin indicator={<LoadingOutlined style={{ fontSize: 16 }} spin />} />
-                    </Card>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
+          {/* Welcome and Health Status Section */}
+          <div style={{ padding: '20px 20px 10px 20px' }}>
+            <Title level={4} style={{ margin: 0 }}>
+              Hi {getUserDisplayName(auth.user?.profile)}
+            </Title>
           </div>
-
-          <div style={{
-            padding: '16px',
-            borderTop: '1px solid #f0f0f0',
-            background: '#fff',
-            position: 'sticky',
-            bottom: 0
-          }}>
-            <div style={{
-              maxWidth: '800px',
-              margin: '0 auto',
-              position: 'relative'
-            }}>
-              <TextArea
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type your message here..."
-                autoSize={{ minRows: 1, maxRows: 6 }}
-                style={{
-                  paddingRight: '40px',
-                  borderRadius: '8px'
-                }}
-                disabled={isLoading}
-              />
-              <Button
-                type="primary"
-                shape="circle"
-                icon={<SendOutlined />}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  bottom: '8px'
-                }}
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
-              />
-            </div>
-            <div style={{
-              textAlign: 'center',
-              marginTop: '8px'
-            }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                X10e's LLM can make mistakes. If you are feeling unwell, please schedule an appointment with your healthcare provider.
-                If this is an emergency, please call 911.
-              </Text>
-            </div>
-          </div>
+          
+          {/* Health Dashboard Section */}
+          <HealthDashboard 
+            userId={auth.user ? getUserId(auth.user) : null}
+            isVisible={!chatExpanded}
+          />
+          
+          {/* Chat Panel Section */}
+          <ChatPanel
+            userId={auth.user ? getUserId(auth.user) : null}
+            messages={messages}
+            setMessages={setMessages}
+            sessionId={sessionId}
+            setSessionId={setSessionId}
+            expanded={chatExpanded}
+            onToggleExpand={toggleChatExpanded}
+          />
         </Content>
       </Layout>
     </Layout>
