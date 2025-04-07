@@ -17,7 +17,7 @@
     "@aws-sdk/client-s3": "^3.758.0",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.6.2",
-    "better-sqlite3": "^8.5.0",
+    "better-sqlite3": "^11.9.1",
     "body-parser": "^1.20.3",
     "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
