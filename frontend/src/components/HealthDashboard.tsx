@@ -290,48 +290,50 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
       
       <Tabs defaultActiveKey="1">
         <TabPane tab="Vital Signs" key="1">
-          <Card bordered={false}>
-            {loading ? (
-              <Skeleton active paragraph={{ rows: 6 }} />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart
-                  data={prepareVitalSignsData()}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'space-between', paddingBottom: '1rem' }}>
+            <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 300px' }}>
+              <Text strong>Heart Rate (BPM)</Text>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={prepareVitalSignsData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" domain={[90, 100]} />
+                  <YAxis label={{ value: 'BPM', angle: -90, position: 'insideLeft' }} />
                   <Tooltip />
                   <Legend />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="heartRate"
-                    name="Heart Rate (BPM)"
-                    stroke={COLORS.heart_rate}
-                    activeDot={{ r: 8 }}
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="bodyTemp"
-                    name="Body Temperature (°C)"
-                    stroke={COLORS.body_temp}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="bloodOxygen"
-                    name="Blood Oxygen (%)"
-                    stroke={COLORS.blood_oxygen}
-                  />
+                  <Line type="monotone" dataKey="heartRate" stroke={COLORS.heart_rate} />
                 </LineChart>
               </ResponsiveContainer>
-            )}
-          </Card>
-        </TabPane>
+            </Card>
+
+            <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 300px' }}>
+              <Text strong>Body Temperature (°C)</Text>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={prepareVitalSignsData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis label={{ value: '°C', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="bodyTemp" stroke={COLORS.body_temp} />
+                </LineChart>
+              </ResponsiveContainer>
+            </Card>
+
+            <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 300px' }}>
+              <Text strong>Blood Oxygen (%)</Text>
+              <ResponsiveContainer width="100%" height={200}>
+                <LineChart data={prepareVitalSignsData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis domain={[90, 100]} label={{ value: '%', angle: -90, position: 'insideLeft' }} tickFormatter={(val) => `${val}%`} />
+                  <Tooltip />
+                  <Legend />
+                  <Line type="monotone" dataKey="bloodOxygen" stroke={COLORS.blood_oxygen} />
+                </LineChart>
+              </ResponsiveContainer>
+            </Card>
+          </div>
+         </TabPane>
         
         <TabPane tab="Biomarkers" key="2">
           <Card bordered={false}>
