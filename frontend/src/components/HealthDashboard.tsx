@@ -640,7 +640,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   return (
     <div 
       style={{
-        padding: '20px', 
+        padding: '20px',
+        paddingBottom: '170px', // Ensure bottom graph isn't covered by chat panel
         height: '100%', 
         overflowY: 'auto',
         transition: 'opacity 0.3s ease-in-out',
