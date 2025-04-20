@@ -315,7 +315,11 @@ const containsHealthDataKeywords = (prompt) => {
     'health data', 'my health data', 'my readings', 'my metrics',
     'cortisol', 'lactate', 'uric acid', 'crp', 'il6', 'il-6',
     'body temperature', 'heart rate', 'blood oxygen', 'my levels',
-    'my stats', 'my health stats', 'my health statistics'
+    'my stats', 'my health stats', 'my health statistics', 'heart', 'rate',
+    'past', 'data', 'readings', 'trends', 'average', 'averages', 'lifestyle',
+    'conditions', 'exercise', 'diet', 'nutrition', 'wellness', 'well-being',
+    'profile', 'health profile', 'about me', 'my profile', 'my information',
+    'health', 'weight', 'height', 'smoking', 'alcohol', 'medical', 'conditions'
   ];
   
   // Check if any keyword is present in the prompt
@@ -423,9 +427,50 @@ const invokeBedrockAgent = async (prompt, sessionId, additionalContext = null) =
   // Prepare the input text - include health data if provided
   let inputText = prompt;
   
+  // Add biomarker data if available
   if (additionalContext && additionalContext.healthData) {
-    inputText += `\n\n===USER HEALTH DATA===\n${JSON.stringify(additionalContext.healthData, null, 2)}\n===END USER HEALTH DATA===`;
+    console.log('===DIAGNOSTIC: ADDING BIOMARKER DATA TO LLM CONTEXT===');
+    console.log(JSON.stringify(additionalContext.healthData, null, 2));
+    console.log('===END DIAGNOSTIC: BIOMARKER DATA===');
+    
+    inputText += `\n\n===USER BIOMARKER DATA===\n${JSON.stringify(additionalContext.healthData, null, 2)}\n===END USER BIOMARKER DATA===`;
   }
+  
+  // Add user health profile if available
+  if (additionalContext && additionalContext.userHealthProfile) {
+    console.log('===DIAGNOSTIC: ADDING USER HEALTH PROFILE TO LLM CONTEXT===');
+    console.log(JSON.stringify(additionalContext.userHealthProfile, null, 2));
+    console.log('===END DIAGNOSTIC: USER HEALTH PROFILE===');
+    
+    // Format the health profile in a more readable way
+    let profileText = '';
+    const profile = additionalContext.userHealthProfile;
+    
+    // Build a human-readable health profile summary
+    if (profile) {
+      profileText += `Age: ${profile.age || 'Not specified'}\n`;
+      profileText += `Gender: ${profile.gender || 'Not specified'}\n`;
+      profileText += `Height: ${profile.height ? `${profile.height} cm` : 'Not specified'}\n`;
+      profileText += `Weight: ${profile.weight ? `${profile.weight} kg` : 'Not specified'}\n`;
+      profileText += `Pre-existing Conditions: ${profile.preExistingConditions?.length > 0 ? profile.preExistingConditions.join(', ') : 'None reported'}\n`;
+      profileText += `Alcohol Consumption: ${profile.alcohol || 'Not specified'}\n`;
+      profileText += `Smoking: ${profile.smoking || 'Not specified'}\n`;
+      profileText += `Recreational Drug Use: ${profile.drugUse ? 'Yes' : 'No'}\n`;
+      profileText += `Exercise Level: ${profile.exerciseLevel || 'Not specified'}\n`;
+      profileText += `Exercise Frequency: ${profile.exerciseFrequency ? `${profile.exerciseFrequency} times per week` : 'Not specified'}\n`;
+      profileText += `Sleep: ${profile.sleepHours ? `${profile.sleepHours} hours per night` : 'Not specified'}\n`;
+      profileText += `Stress Level: ${profile.stressLevel || 'Not specified'}\n`;
+      profileText += `Diet Type: ${profile.dietType || 'Not specified'}\n`;
+    }
+    
+    // Add the formatted profile to the LLM context
+    inputText += `\n\n===USER HEALTH PROFILE===\n${profileText}\n===END USER HEALTH PROFILE===`;
+  }
+  
+  // Log the complete input text being sent to the LLM
+  console.log('===DIAGNOSTIC: COMPLETE LLM INPUT===');
+  console.log(inputText);
+  console.log('===END DIAGNOSTIC: COMPLETE LLM INPUT===');
   
   const command = new InvokeAgentCommand({
     agentId: AGENT_ID,
@@ -562,6 +607,74 @@ function getUserChatSessions(userId) {
 
 // ENDPOINT ROUTES
 
+// User Health Profile endpoints
+app.post("/user-health-profile/:userId", (req, res) => {
+  try {
+    const { userId } = req.params;
+    const profileData = req.body;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "Missing userId parameter." });
+    }
+    
+    if (!profileData) {
+      return res.status(400).json({ error: "Missing profile data in request body." });
+    }
+    
+    // Create userdata directory if it doesn't exist
+    const USERDATA_DIR = path.join(__dirname, 'userdata');
+    if (!fs.existsSync(USERDATA_DIR)) {
+      fs.mkdirSync(USERDATA_DIR, { recursive: true });
+    }
+    
+    // Write the profile data to a JSON file
+    const filePath = path.join(USERDATA_DIR, `${userId}.json`);
+    fs.writeFileSync(filePath, JSON.stringify(profileData, null, 2));
+    
+    res.json({ 
+      success: true, 
+      message: "User health profile saved successfully"
+    });
+  } catch (error) {
+    console.error("Error saving user health profile:", error);
+    res.status(500).json({
+      error: "Failed to save health profile.",
+      details: error.message
+    });
+  }
+});
+
+app.get("/user-health-profile/:userId", (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId) {
+      return res.status(400).json({ error: "Missing userId parameter." });
+    }
+    
+    const USERDATA_DIR = path.join(__dirname, 'userdata');
+    const filePath = path.join(USERDATA_DIR, `${userId}.json`);
+    
+    if (!fs.existsSync(filePath)) {
+      return res.json({ profileExists: false });
+    }
+    
+    const fileContent = fs.readFileSync(filePath, 'utf8');
+    const profileData = JSON.parse(fileContent);
+    
+    res.json({ 
+      profileExists: true,
+      profileData
+    });
+  } catch (error) {
+    console.error("Error retrieving user health profile:", error);
+    res.status(500).json({
+      error: "Failed to retrieve health profile.",
+      details: error.message
+    });
+  }
+});
+
 // Chat sessions and history routes
 app.get("/chat-sessions/:userId", (req, res) => {
   try {
@@ -604,7 +717,7 @@ app.get("/chat-history/:userId/:sessionId", (req, res) => {
 // Updated chat endpoint
 app.post("/chat", async (req, res) => {
   try {
-    const { question, userId } = req.body;
+    const { question, userId, userHealthProfile } = req.body;
     // Ensure we always have a valid sessionId
     const sessionId = req.body.sessionId || generateSessionId();
 
@@ -621,21 +734,46 @@ app.post("/chat", async (req, res) => {
       saveChatMessage(userId, sessionId, userMessage);
     }
 
-    // Check if the question contains health data keywords
+    // Always include health profile if it exists, check for keywords for biomarker data
     const includeHealthData = containsHealthDataKeywords(question);
-    let additionalContext = null;
+    let additionalContext = {};
     
+    console.log(`===DIAGNOSTIC: CHAT CONTEXT DECISION===`);
+    console.log(`Question: "${question}"`);
+    console.log(`Contains health keywords: ${includeHealthData}`);
+    console.log(`User health profile data:`, userHealthProfile);
+    
+    // Always include user health profile if available
+    if (userHealthProfile) {
+      console.log("Adding user health profile to context");
+      additionalContext.userHealthProfile = userHealthProfile;
+    }
+    
+    // Add biomarker data if keywords are found
     if (includeHealthData) {
       const healthData = getRecentHealthData();
       
+      console.log(`Biomarker data available: ${healthData && !healthData.error && !healthData.noData ? 'Yes' : 'No'}`);
+      
       if (healthData && !healthData.error && !healthData.noData) {
-        additionalContext = { healthData };
+        additionalContext.healthData = healthData;
+        console.log(`Context: Including biomarker data`);
       } else if (healthData.error) {
         console.error("Error getting health data:", healthData.error);
       }
     }
     
-    // Invoke the Bedrock agent with or without health data
+    // If no additional context was added, set to null for clarity
+    if (Object.keys(additionalContext).length === 0) {
+      additionalContext = null;
+      console.log(`Context: No additional context available`);
+    } else {
+      console.log(`Context: Including additional context:`, Object.keys(additionalContext));
+    }
+    
+    console.log(`===END DIAGNOSTIC: CHAT CONTEXT DECISION===`);
+    
+    // Invoke the Bedrock agent with additional context
     const result = await invokeBedrockAgent(question, sessionId, additionalContext);
     
     // If userId is provided, save the assistant response
@@ -647,11 +785,12 @@ app.post("/chat", async (req, res) => {
       saveChatMessage(userId, sessionId, assistantMessage);
     }
     
-    // For debugging, you can include in the response whether health data was included
+    // For debugging, include in the response what data was included
     res.json({
       response: result.completion,
       sessionId: result.sessionId,
-      healthDataIncluded: !!additionalContext
+      healthDataIncluded: additionalContext?.healthData ? true : false,
+      profileDataIncluded: additionalContext?.userHealthProfile ? true : false
     });
   } catch (error) {
     console.error("AWS Bedrock Agent Error:", error);

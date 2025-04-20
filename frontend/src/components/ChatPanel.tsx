@@ -23,6 +23,9 @@ interface ChatMessage {
   timestamp?: string;
 }
 
+// Import UserHealthProfile type
+import { UserHealthProfile } from '../hooks/useUserHealthProfile';
+
 interface ChatPanelProps {
   userId: string | null;
   messages: ChatMessage[];
@@ -31,6 +34,7 @@ interface ChatPanelProps {
   setSessionId: React.Dispatch<React.SetStateAction<string | null>>;
   expanded: boolean;
   onToggleExpand: () => void;
+  userHealthProfile: UserHealthProfile | null;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({ 
@@ -40,7 +44,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   sessionId, 
   setSessionId,
   expanded,
-  onToggleExpand
+  onToggleExpand,
+  userHealthProfile
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -93,6 +98,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     // Set loading state
     setIsLoading(true);
     
+    // Debug log to see what profile data we're sending
+    console.log("Sending user health profile:", userHealthProfile);
+    
     try {
       // Get user ID for chat history tracking
       
@@ -104,7 +112,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         body: JSON.stringify({
           question: userMessage,
           sessionId: sessionId,
-          userId: userId
+          userId: userId,
+          userHealthProfile: userHealthProfile
         }),
       });
       

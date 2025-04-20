@@ -1,12 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Typography, Row, Col, Card, Skeleton, Tabs, Divider } from 'antd';
+import { 
+  Typography, Row, Col, Card, Skeleton, Tabs, Divider, 
+  Button, Statistic, Badge, Space, Tooltip as AntTooltip
+} from 'antd';
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
   ResponsiveContainer, Cell 
 } from 'recharts';
+import {
+  ArrowUpOutlined,
+  ArrowDownOutlined,
+  MinusOutlined,
+  BarChartOutlined
+} from '@ant-design/icons';
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 const { TabPane } = Tabs;
 
 // Define interfaces for health data
@@ -73,6 +82,42 @@ const COLORS = {
 
 const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042'];
 
+// Normal ranges for biomarkers
+const NORMAL_RANGES = {
+  cortisol_base: { min: 138, max: 635 },
+  lactate_base: { min: 0.5, max: 2.0 },
+  uric_acid_base: { min: 3.0, max: 7.0 },
+  crp_base: { min: 0, max: 8.0 },
+  il6_base: { min: 0, max: 14.0 },
+  body_temp_base: { min: 36.5, max: 37.5 },
+  heart_rate_base: { min: 60, max: 100 },
+  blood_oxygen_base: { min: 95, max: 100 }
+};
+
+// Biomarker display names
+const BIOMARKER_NAMES = {
+  cortisol_base: "Cortisol",
+  lactate_base: "Lactate",
+  uric_acid_base: "Uric Acid",
+  crp_base: "CRP",
+  il6_base: "IL-6",
+  body_temp_base: "Body Temp",
+  heart_rate_base: "Heart Rate",
+  blood_oxygen_base: "Blood Oxygen"
+};
+
+// Biomarker units
+const BIOMARKER_UNITS = {
+  cortisol_base: "nmol/L",
+  lactate_base: "mmol/L",
+  uric_acid_base: "mg/dL",
+  crp_base: "mg/L",
+  il6_base: "pg/mL",
+  body_temp_base: "°C",
+  heart_rate_base: "BPM",
+  blood_oxygen_base: "%"
+};
+
 // Function to analyze health data and provide a summary
 const analyzeHealthData = (healthData: HealthData | null): string => {
   if (!healthData) return "Loading your health information...";
@@ -105,11 +150,35 @@ const analyzeHealthData = (healthData: HealthData | null): string => {
   }
 };
 
+// Get status color for biomarker
+const getBiomarkerStatusColor = (value: number, biomarker: string) => {
+  const range = NORMAL_RANGES[biomarker as keyof typeof NORMAL_RANGES];
+  if (!range) return "default";
+  
+  if (value < range.min) return "blue";
+  if (value > range.max) return "red";
+  return "green";
+};
+
+// Get trend icon for biomarker
+const getTrendIcon = (trend: string) => {
+  switch (trend) {
+    case 'increasing':
+      return <ArrowUpOutlined style={{ color: '#ff4d4f' }} />;
+    case 'decreasing':
+      return <ArrowDownOutlined style={{ color: '#52c41a' }} />;
+    case 'stable':
+      return <MinusOutlined style={{ color: '#1890ff' }} />;
+    default:
+      return null;
+  }
+};
 
 const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) => {
   const [healthData, setHealthData] = useState<HealthData | null>(null);
   const [loading, setLoading] = useState(true);
   const [analysisText, setAnalysisText] = useState<string>("");
+  const [showGraphs, setShowGraphs] = useState(false);
   
   useEffect(() => {
     // Fetch health data from the API
@@ -266,6 +335,308 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   // Don't render if not visible
   if (!isVisible) return null;
 
+  // Render the welcome summary view
+  const renderSummaryView = () => {
+    return (
+      <div style={{ marginBottom: '24px' }}>
+        <Row gutter={[24, 24]}>
+          <Col span={24}>
+            <Card bordered={false}>
+              {loading ? (
+                <Skeleton active paragraph={{ rows: 1 }} />
+              ) : (
+                <div>
+                  <Text style={{ fontSize: '16px', color: '#333' }}>
+                    {analysisText}
+                  </Text>
+                  <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                    <Button 
+                      type="primary"
+                      icon={<BarChartOutlined />}
+                      onClick={() => setShowGraphs(true)}
+                    >
+                      View Detailed Graphs
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+          </Col>
+        </Row>
+
+        <Divider orientation="left">Vital Signs</Divider>
+        <Row gutter={[16, 16]}>
+          {loading ? (
+            Array(3).fill(null).map((_, index) => (
+              <Col xs={24} sm={8} key={index}>
+                <Card>
+                  <Skeleton active paragraph={{ rows: 1 }} />
+                </Card>
+              </Col>
+            ))
+          ) : (
+            <>
+              {['heart_rate_base', 'body_temp_base', 'blood_oxygen_base'].map((biomarker) => {
+                const value = healthData?.averages[biomarker as keyof BiomarkerAverages] || 0;
+                const trend = healthData?.trends[biomarker as keyof BiomarkerTrends] || '';
+                const name = BIOMARKER_NAMES[biomarker as keyof typeof BIOMARKER_NAMES];
+                const unit = BIOMARKER_UNITS[biomarker as keyof typeof BIOMARKER_UNITS];
+                const color = getBiomarkerStatusColor(value, biomarker);
+                
+                return (
+                  <Col xs={24} sm={8} key={biomarker}>
+                    <Card>
+                      <Statistic
+                        title={
+                          <Space>
+                            <Badge status={color as any} />
+                            <span>{name}</span>
+                          </Space>
+                        }
+                        value={value.toFixed(1)}
+                        suffix={
+                          <Space>
+                            <span>{unit}</span>
+                            {getTrendIcon(trend)}
+                          </Space>
+                        }
+                        precision={1}
+                      />
+                    </Card>
+                  </Col>
+                );
+              })}
+            </>
+          )}
+        </Row>
+
+        <Divider orientation="left">Biomarkers</Divider>
+        <Row gutter={[16, 16]}>
+          {loading ? (
+            Array(5).fill(null).map((_, index) => (
+              <Col xs={24} sm={12} md={8} lg={6} xl={4} key={index}>
+                <Card>
+                  <Skeleton active paragraph={{ rows: 1 }} />
+                </Card>
+              </Col>
+            ))
+          ) : (
+            <>
+              {['cortisol_base', 'lactate_base', 'uric_acid_base', 'crp_base', 'il6_base'].map((biomarker) => {
+                const value = healthData?.averages[biomarker as keyof BiomarkerAverages] || 0;
+                const trend = healthData?.trends[biomarker as keyof BiomarkerTrends] || '';
+                const name = BIOMARKER_NAMES[biomarker as keyof typeof BIOMARKER_NAMES];
+                const unit = BIOMARKER_UNITS[biomarker as keyof typeof BIOMARKER_UNITS];
+                const color = getBiomarkerStatusColor(value, biomarker);
+                
+                return (
+                  <Col xs={24} sm={12} md={8} lg={6} xl={4} key={biomarker}>
+                    <Card>
+                      <Statistic
+                        title={
+                          <Space>
+                            <Badge status={color as any} />
+                            <span>{name}</span>
+                          </Space>
+                        }
+                        value={value.toFixed(1)}
+                        suffix={
+                          <Space>
+                            <span>{unit}</span>
+                            {getTrendIcon(trend)}
+                          </Space>
+                        }
+                        precision={1}
+                      />
+                    </Card>
+                  </Col>
+                );
+              })}
+            </>
+          )}
+        </Row>
+      </div>
+    );
+  };
+
+  // Render the detailed graphs view
+  const renderGraphsView = () => {
+    return (
+      <div>
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={4}>Health Analytics</Title>
+          <Button onClick={() => setShowGraphs(false)}>
+            Back to Summary
+          </Button>
+        </div>
+        
+        <Tabs defaultActiveKey="1">
+          <TabPane tab="Vital Signs" key="1">
+            <Card bordered={false}>
+              {loading ? (
+                <Skeleton active paragraph={{ rows: 6 }} />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart
+                    data={prepareVitalSignsData()}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis yAxisId="left" />
+                    <YAxis yAxisId="right" orientation="right" domain={[90, 100]} />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="heartRate"
+                      name="Heart Rate (BPM)"
+                      stroke={COLORS.heart_rate}
+                      activeDot={{ r: 8 }}
+                    />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="bodyTemp"
+                      name="Body Temperature (°C)"
+                      stroke={COLORS.body_temp}
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="bloodOxygen"
+                      name="Blood Oxygen (%)"
+                      stroke={COLORS.blood_oxygen}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </Card>
+          </TabPane>
+          
+          <TabPane tab="Biomarkers" key="2">
+            <Card bordered={false}>
+              {loading ? (
+                <Skeleton active paragraph={{ rows: 6 }} />
+              ) : (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart
+                    data={prepareBiomarkersData()}
+                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Line
+                      type="monotone"
+                      dataKey="cortisol"
+                      name="Cortisol"
+                      stroke={COLORS.cortisol}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="lactate"
+                      name="Lactate"
+                      stroke={COLORS.lactate}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="uricAcid"
+                      name="Uric Acid"
+                      stroke={COLORS.uric_acid}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="crp"
+                      name="CRP"
+                      stroke={COLORS.crp}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="il6"
+                      name="IL-6"
+                      stroke={COLORS.il6}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
+            </Card>
+          </TabPane>
+          
+          <TabPane tab="Health Trends" key="3">
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <Card title="Biomarker Trends" bordered={false}>
+                  {loading ? (
+                    <Skeleton active paragraph={{ rows: 4 }} />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart>
+                        <Pie
+                          data={prepareTrendsData()}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={true}
+                          label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                        >
+                          {prepareTrendsData().map((_, index) => (
+                            <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </Card>
+              </Col>
+              
+              <Col xs={24} md={12}>
+                <Card title="Biomarker Averages" bordered={false}>
+                  {loading ? (
+                    <Skeleton active paragraph={{ rows: 4 }} />
+                  ) : (
+                    <ResponsiveContainer width="100%" height={250}>
+                      <BarChart
+                        data={[
+                          { name: 'Cortisol', value: healthData?.averages.cortisol_base || 0 },
+                          { name: 'Lactate', value: healthData?.averages.lactate_base || 0 },
+                          { name: 'Uric Acid', value: healthData?.averages.uric_acid_base || 0 },
+                          { name: 'CRP', value: healthData?.averages.crp_base || 0 },
+                          { name: 'IL-6', value: healthData?.averages.il6_base || 0 }
+                        ]}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Bar dataKey="value" name="Average Value">
+                          {[
+                            <Cell key="cell-0" fill={COLORS.cortisol} />,
+                            <Cell key="cell-1" fill={COLORS.lactate} />,
+                            <Cell key="cell-2" fill={COLORS.uric_acid} />,
+                            <Cell key="cell-3" fill={COLORS.crp} />,
+                            <Cell key="cell-4" fill={COLORS.il6} />
+                          ]}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </Card>
+              </Col>
+            </Row>
+          </TabPane>
+        </Tabs>
+      </div>
+    );
+  };
+
   return (
     <div 
       style={{
@@ -276,181 +647,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
         opacity: isVisible ? 1 : 0
       }}
     >
-      <div style={{ marginBottom: '24px' }}>
-        {loading ? (
-          <Skeleton active paragraph={{ rows: 1 }} />
-        ) : (
-          <Text style={{ fontSize: '16px', color: '#333' }}>
-            {analysisText}
-          </Text>
-        )}
-      </div>
-
-      <Divider />
-      
-      <Tabs defaultActiveKey="1">
-        <TabPane tab="Vital Signs" key="1">
-          <Card bordered={false}>
-            {loading ? (
-              <Skeleton active paragraph={{ rows: 6 }} />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart
-                  data={prepareVitalSignsData()}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" domain={[90, 100]} />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="heartRate"
-                    name="Heart Rate (BPM)"
-                    stroke={COLORS.heart_rate}
-                    activeDot={{ r: 8 }}
-                  />
-                  <Line
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="bodyTemp"
-                    name="Body Temperature (°C)"
-                    stroke={COLORS.body_temp}
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="bloodOxygen"
-                    name="Blood Oxygen (%)"
-                    stroke={COLORS.blood_oxygen}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </Card>
-        </TabPane>
-        
-        <TabPane tab="Biomarkers" key="2">
-          <Card bordered={false}>
-            {loading ? (
-              <Skeleton active paragraph={{ rows: 6 }} />
-            ) : (
-              <ResponsiveContainer width="100%" height={300}>
-                <LineChart
-                  data={prepareBiomarkersData()}
-                  margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="cortisol"
-                    name="Cortisol"
-                    stroke={COLORS.cortisol}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="lactate"
-                    name="Lactate"
-                    stroke={COLORS.lactate}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="uricAcid"
-                    name="Uric Acid"
-                    stroke={COLORS.uric_acid}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="crp"
-                    name="CRP"
-                    stroke={COLORS.crp}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="il6"
-                    name="IL-6"
-                    stroke={COLORS.il6}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            )}
-          </Card>
-        </TabPane>
-        
-        <TabPane tab="Health Trends" key="3">
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Card title="Biomarker Trends" bordered={false}>
-                {loading ? (
-                  <Skeleton active paragraph={{ rows: 4 }} />
-                ) : (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <PieChart>
-                      <Pie
-                        data={prepareTrendsData()}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={true}
-                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                      >
-                        {prepareTrendsData().map((_, index) => (
-                          <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </Card>
-            </Col>
-            
-            <Col xs={24} md={12}>
-              <Card title="Biomarker Averages" bordered={false}>
-                {loading ? (
-                  <Skeleton active paragraph={{ rows: 4 }} />
-                ) : (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <BarChart
-                      data={[
-                        { name: 'Cortisol', value: healthData?.averages.cortisol_base || 0 },
-                        { name: 'Lactate', value: healthData?.averages.lactate_base || 0 },
-                        { name: 'Uric Acid', value: healthData?.averages.uric_acid_base || 0 },
-                        { name: 'CRP', value: healthData?.averages.crp_base || 0 },
-                        { name: 'IL-6', value: healthData?.averages.il6_base || 0 }
-                      ]}
-                      margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip />
-                      <Bar dataKey="value" name="Average Value">
-                        {[
-                          <Cell key="cell-0" fill={COLORS.cortisol} />,
-                          <Cell key="cell-1" fill={COLORS.lactate} />,
-                          <Cell key="cell-2" fill={COLORS.uric_acid} />,
-                          <Cell key="cell-3" fill={COLORS.crp} />,
-                          <Cell key="cell-4" fill={COLORS.il6} />
-                        ]}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
-              </Card>
-            </Col>
-          </Row>
-        </TabPane>
-      </Tabs>
+      {showGraphs ? renderGraphsView() : renderSummaryView()}
     </div>
   );
 };

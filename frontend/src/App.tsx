@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from "react-oidc-context";
 import {
   Layout,
@@ -27,6 +27,8 @@ import {
 // Import our components
 import HealthDashboard from './components/HealthDashboard';
 import ChatPanel from './components/ChatPanel';
+import UserHealthProfileForm from './components/UserHealthProfileForm';
+import { useUserHealthProfile } from './hooks/useUserHealthProfile';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -54,15 +56,21 @@ const App = () => {
   const [loadingChatSessions, setLoadingChatSessions] = useState(false);
   const [chatExpanded, setChatExpanded] = useState(false);
   const auth = useAuth();
+  
+  // Define getUserId function
+  const getUserId = (user: any): string => {
+    // Use sub claim as unique user identifier
+    return user?.profile?.sub || user?.profile?.["cognito:username"] || user?.profile?.email || 'anonymous';
+  };
+  
+  // Add user health profile functionality
+  const {
+    profileData,
+    showProfileForm,
+    setShowProfileForm
+  } = useUserHealthProfile(auth.isAuthenticated && auth.user ? getUserId(auth.user) : null);
 
-  // Fetch chat sessions when user is authenticated
-  useEffect(() => {
-    if (auth.isAuthenticated && auth.user) {
-      fetchChatSessions();
-    }
-  }, [auth.isAuthenticated, auth.user]);
-
-  const fetchChatSessions = async () => {
+  const fetchChatSessions = useCallback(async () => {
     if (!auth.user) return;
     
     setLoadingChatSessions(true);
@@ -82,7 +90,14 @@ const App = () => {
     } finally {
       setLoadingChatSessions(false);
     }
-  };
+  }, [auth.user]);
+  
+  // Fetch chat sessions when user is authenticated
+  useEffect(() => {
+    if (auth.isAuthenticated && auth.user) {
+      fetchChatSessions();
+    }
+  }, [auth.isAuthenticated, auth.user, fetchChatSessions]);
 
   const fetchChatHistory = async (sessionId: string) => {
     if (!auth.user) return;
@@ -105,10 +120,7 @@ const App = () => {
     }
   };
 
-  const getUserId = (user: any): string => {
-    // Use sub claim as unique user identifier
-    return user.profile.sub || user.profile["cognito:username"] || user.profile.email || 'anonymous';
-  };
+  // getUserId function already defined above
 
   const toggleSider = () => {
     setCollapsed(!collapsed);
@@ -175,6 +187,36 @@ const App = () => {
   const toggleChatExpanded = () => {
     setChatExpanded(!chatExpanded);
   };
+  
+  // Handle profile form completion
+  const handleProfileComplete = async (profileData: any) => {
+    if (auth.isAuthenticated && auth.user) {
+      try {
+        // Get the userId
+        const userId = getUserId(auth.user);
+        
+        // Save to server
+        const response = await fetch(`http://localhost:3000/user-health-profile/${userId}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(profileData)
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to save health profile');
+        }
+        
+        console.log('Successfully saved profile to server');
+        
+        // Update the state
+        setShowProfileForm(false);
+      } catch (error) {
+        console.error('Error saving profile:', error);
+      }
+    }
+  };
 
   const blurStyle = !auth.isAuthenticated ? {
     filter: 'blur(5px)',
@@ -194,8 +236,10 @@ const App = () => {
       }}>
         <Spin
           indicator={<LoadingOutlined style={{ fontSize: 32 }} spin />}
-          tip="Loading your session..."
         />
+        <div style={{ marginTop: '16px' }}>
+          Loading your session...
+        </div>
       </div>
     );
   }
@@ -413,9 +457,20 @@ const App = () => {
             setSessionId={setSessionId}
             expanded={chatExpanded}
             onToggleExpand={toggleChatExpanded}
+            userHealthProfile={profileData}
           />
         </Content>
       </Layout>
+      
+      {/* User Health Profile Form */}
+      {auth.isAuthenticated && (
+        <UserHealthProfileForm
+          userId={auth.user ? getUserId(auth.user) : null}
+          visible={showProfileForm}
+          onClose={() => {}} // Empty function as we don't want to allow closing if no profile
+          onComplete={handleProfileComplete}
+        />
+      )}
     </Layout>
   );
 };
