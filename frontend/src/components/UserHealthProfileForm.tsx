@@ -1,0 +1,307 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Modal,
+  Steps,
+  Button,
+  Form,
+  Input,
+  Select,
+  Radio,
+  Space,
+  Typography,
+  InputNumber,
+  Switch,
+  DatePicker
+} from 'antd';
+
+const { Title, Text } = Typography;
+const { Step } = Steps;
+const { Option } = Select;
+
+interface UserHealthProfile {
+  age?: number;
+  gender?: string;
+  height?: number; // in cm
+  weight?: number; // in kg
+  preExistingConditions?: string[];
+  alcohol?: string; // none, occasional, moderate, heavy
+  smoking?: string; // none, occasional, regular, heavy
+  drugUse?: boolean;
+  exerciseLevel?: string; // none, light, moderate, intense
+  exerciseFrequency?: number; // times per week
+  sleepHours?: number;
+  stressLevel?: string; // low, moderate, high
+  dietType?: string; // omnivore, vegetarian, vegan, other
+}
+
+interface UserHealthProfileFormProps {
+  userId: string | null;
+  visible: boolean;
+  onClose: () => void;
+  onComplete: (profileData: UserHealthProfile) => void;
+}
+
+// Storage key for the health profile in browser local storage
+const STORAGE_KEY = 'userHealthProfile';
+
+const UserHealthProfileForm: React.FC<UserHealthProfileFormProps> = ({
+  userId,
+  visible,
+  onClose,
+  onComplete
+}) => {
+  const [form] = Form.useForm();
+  const [currentStep, setCurrentStep] = useState(0);
+  const [userData, setUserData] = useState<UserHealthProfile>({});
+
+  // Check if user already has a profile
+  useEffect(() => {
+    if (userId && visible) {
+      // We don't need to load from localStorage anymore as the profile will be 
+      // passed to this component via props by the parent component using
+      // the useUserHealthProfile hook, which now fetches from the server
+    }
+  }, [userId, visible, form]);
+
+  // Handle form completion
+  const handleComplete = () => {
+    form.validateFields().then(values => {
+      // Combine previous steps data with current step
+      const updatedProfile = { ...userData, ...values };
+      setUserData(updatedProfile);
+      
+      // Pass data back to the parent component, which will save to the server
+      onComplete(updatedProfile);
+    });
+  };
+
+  // Handle next step
+  const handleNext = () => {
+    form.validateFields().then(values => {
+      // Save current step data
+      const updatedProfile = { ...userData, ...values };
+      setUserData(updatedProfile);
+      
+      // Move to next step
+      setCurrentStep(currentStep + 1);
+      
+      // Update form with saved values for the next step
+      form.setFieldsValue(updatedProfile);
+    });
+  };
+
+  // Handle previous step
+  const handlePrevious = () => {
+    // Save current form values even if not validated
+    const currentValues = form.getFieldsValue();
+    const updatedProfile = { ...userData, ...currentValues };
+    setUserData(updatedProfile);
+    
+    // Move to previous step
+    setCurrentStep(currentStep - 1);
+    
+    // Set form values for previous step
+    form.setFieldsValue(updatedProfile);
+  };
+
+  // Steps content definitions
+  const steps = [
+    {
+      title: 'Basic Information',
+      content: (
+        <Form form={form} layout="vertical" initialValues={userData}>
+          <Form.Item
+            name="age"
+            label="Age"
+            rules={[{ required: true, message: 'Please enter your age' }]}
+          >
+            <InputNumber min={1} max={120} style={{ width: '100%' }} />
+          </Form.Item>
+          
+          <Form.Item
+            name="gender"
+            label="Gender"
+            rules={[{ required: true, message: 'Please select your gender' }]}
+          >
+            <Select placeholder="Select your gender">
+              <Option value="male">Male</Option>
+              <Option value="female">Female</Option>
+              <Option value="non-binary">Non-binary</Option>
+              <Option value="prefer-not-to-say">Prefer not to say</Option>
+            </Select>
+          </Form.Item>
+          
+          <Form.Item name="height" label="Height (cm)">
+            <InputNumber min={1} max={300} style={{ width: '100%' }} />
+          </Form.Item>
+          
+          <Form.Item name="weight" label="Weight (kg)">
+            <InputNumber min={1} max={500} style={{ width: '100%' }} />
+          </Form.Item>
+        </Form>
+      )
+    },
+    {
+      title: 'Health Conditions',
+      content: (
+        <Form form={form} layout="vertical" initialValues={userData}>
+          <Form.Item
+            name="preExistingConditions"
+            label="Pre-existing Conditions"
+            help="Select all that apply"
+          >
+            <Select mode="multiple" placeholder="Select conditions">
+              <Option value="diabetes">Diabetes</Option>
+              <Option value="hypertension">Hypertension</Option>
+              <Option value="heart-disease">Heart Disease</Option>
+              <Option value="asthma">Asthma</Option>
+              <Option value="depression">Depression</Option>
+              <Option value="anxiety">Anxiety</Option>
+              <Option value="hyperthyroidism">Hyperthyroidism</Option>
+              <Option value="hypothyroidism">Hypothyroidism</Option>
+              <Option value="arthritis">Arthritis</Option>
+              <Option value="cancer">Cancer</Option>
+              <Option value="none">None</Option>
+            </Select>
+          </Form.Item>
+          
+          <Form.Item
+            name="alcohol"
+            label="Alcohol Consumption"
+          >
+            <Radio.Group>
+              <Radio value="none">None</Radio>
+              <Radio value="occasional">Occasional (1-2 drinks/week)</Radio>
+              <Radio value="moderate">Moderate (3-7 drinks/week)</Radio>
+              <Radio value="heavy">Heavy (8+ drinks/week)</Radio>
+            </Radio.Group>
+          </Form.Item>
+          
+          <Form.Item
+            name="smoking"
+            label="Smoking"
+          >
+            <Radio.Group>
+              <Radio value="none">Non-smoker</Radio>
+              <Radio value="occasional">Occasional</Radio>
+              <Radio value="regular">Regular</Radio>
+              <Radio value="heavy">Heavy</Radio>
+            </Radio.Group>
+          </Form.Item>
+          
+          <Form.Item
+            name="drugUse"
+            label="Recreational Drug Use"
+            valuePropName="checked"
+          >
+            <Switch />
+          </Form.Item>
+        </Form>
+      )
+    },
+    {
+      title: 'Lifestyle',
+      content: (
+        <Form form={form} layout="vertical" initialValues={userData}>
+          <Form.Item
+            name="exerciseLevel"
+            label="Exercise Level"
+          >
+            <Radio.Group>
+              <Radio value="none">None</Radio>
+              <Radio value="light">Light (walking, yoga)</Radio>
+              <Radio value="moderate">Moderate (jogging, cycling)</Radio>
+              <Radio value="intense">Intense (HIIT, weight training)</Radio>
+            </Radio.Group>
+          </Form.Item>
+          
+          <Form.Item
+            name="exerciseFrequency"
+            label="Exercise Frequency (times per week)"
+          >
+            <InputNumber min={0} max={30} style={{ width: '100%' }} />
+          </Form.Item>
+          
+          <Form.Item
+            name="sleepHours"
+            label="Average Sleep (hours per night)"
+          >
+            <InputNumber min={0} max={24} style={{ width: '100%' }} />
+          </Form.Item>
+          
+          <Form.Item
+            name="stressLevel"
+            label="Stress Level"
+          >
+            <Radio.Group>
+              <Radio value="low">Low</Radio>
+              <Radio value="moderate">Moderate</Radio>
+              <Radio value="high">High</Radio>
+            </Radio.Group>
+          </Form.Item>
+          
+          <Form.Item
+            name="dietType"
+            label="Diet Type"
+          >
+            <Select placeholder="Select diet type">
+              <Option value="omnivore">Omnivore</Option>
+              <Option value="vegetarian">Vegetarian</Option>
+              <Option value="vegan">Vegan</Option>
+              <Option value="pescatarian">Pescatarian</Option>
+              <Option value="keto">Keto</Option>
+              <Option value="paleo">Paleo</Option>
+              <Option value="other">Other</Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      )
+    }
+  ];
+
+  return (
+    <Modal
+      title="Health Profile"
+      open={visible}
+      onCancel={onClose}
+      footer={null}
+      width={600}
+      maskStyle={{ backdropFilter: 'blur(5px)' }}
+      centered
+    >
+      <div style={{ padding: '20px 0' }}>
+        <Steps current={currentStep}>
+          {steps.map(step => (
+            <Step key={step.title} title={step.title} />
+          ))}
+        </Steps>
+        
+        <div style={{ margin: '30px 0' }}>
+          {steps[currentStep].content}
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          {currentStep > 0 && (
+            <Button onClick={handlePrevious}>
+              Previous
+            </Button>
+          )}
+          <div style={{ marginLeft: 'auto' }}>
+            {currentStep < steps.length - 1 && (
+              <Button type="primary" onClick={handleNext}>
+                Next
+              </Button>
+            )}
+            {currentStep === steps.length - 1 && (
+              <Button type="primary" onClick={handleComplete}>
+                Complete
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+export default UserHealthProfileForm;
