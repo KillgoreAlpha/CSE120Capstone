@@ -981,7 +981,20 @@ wss.on('connection', (ws) => {
 
 // Function to broadcast biomarker data to all connected clients
 function broadcastBiomarkerData(data) {
-  const message = JSON.stringify(data);
+  // Make sure we're using the correct biomarker field names expected by the frontend
+  const formattedData = {
+    timestamp: data.timestamp || new Date().toISOString(),
+    cortisol_base: data.cortisol_base,
+    lactate_base: data.lactate_base,
+    uric_acid_base: data.uric_acid_base,
+    crp_base: data.crp_base,
+    il6_base: data.il6_base,
+    body_temp_base: data.body_temp_base,
+    heart_rate_base: data.heart_rate_base,
+    blood_oxygen_base: data.blood_oxygen_base
+  };
+  
+  const message = JSON.stringify(formattedData);
   for (const client of connectedClients) {
     if (client.readyState === 1) { // WebSocket.OPEN = 1
       client.send(message);
@@ -1000,7 +1013,20 @@ async function sendLatestBiomarkerData(ws) {
     `).get();
     
     if (latestReading) {
-      ws.send(JSON.stringify(latestReading));
+      // Format data the same way as the broadcast function
+      const formattedData = {
+        timestamp: latestReading.timestamp || new Date().toISOString(),
+        cortisol_base: latestReading.cortisol_base,
+        lactate_base: latestReading.lactate_base,
+        uric_acid_base: latestReading.uric_acid_base,
+        crp_base: latestReading.crp_base,
+        il6_base: latestReading.il6_base,
+        body_temp_base: latestReading.body_temp_base,
+        heart_rate_base: latestReading.heart_rate_base,
+        blood_oxygen_base: latestReading.blood_oxygen_base
+      };
+      
+      ws.send(JSON.stringify(formattedData));
     }
   } catch (error) {
     console.error('Error sending latest biomarker data:', error);
