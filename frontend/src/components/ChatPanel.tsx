@@ -35,6 +35,7 @@ interface ChatPanelProps {
   expanded: boolean;
   onToggleExpand: () => void;
   userHealthProfile: UserHealthProfile | null;
+  onChatSessionUpdated?: () => void;
 }
 
 const ChatPanel: React.FC<ChatPanelProps> = ({ 
@@ -45,7 +46,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   setSessionId,
   expanded,
   onToggleExpand,
-  userHealthProfile
+  userHealthProfile,
+  onChatSessionUpdated
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -84,6 +86,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // The onChatSessionUpdated is already available from the destructured props
 
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
@@ -131,6 +135,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       // Add assistant response to chat
       const assistantMessageObj = { role: 'assistant', content: data.response };
       setMessages(prev => [...prev, assistantMessageObj]);
+      
+      // Notify parent component that chat history has been updated
+      if (onChatSessionUpdated && userId) {
+        onChatSessionUpdated();
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       message.error('Failed to send message. Please try again.');

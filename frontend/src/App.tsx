@@ -141,8 +141,19 @@ const App = () => {
   const getUserDisplayName = (profile?: UserProfile): string => {
     if (!profile) return 'User';
     
-    // Try to get name from cognito:username (remove any numeric suffixes if present)
-    const username = profile.authenticated;
+    // First priority: given_name (first name)
+    if (profile.given_name) {
+      return profile.given_name;
+    }
+    
+    // Second priority: name, take first part if it has spaces
+    if (profile.name) {
+      const firstName = profile.name.split(' ')[0];
+      return firstName;
+    }
+    
+    // Third priority: cognito username
+    const username = profile.authenticated || profile["cognito:username"];
     if (username) {
       // Clean up username if needed (e.g., remove numbers at the end, capitalize)
       const cleanUsername = username.replace(/[0-9]+$/, '');
@@ -336,10 +347,10 @@ const App = () => {
           <Avatar icon={<UserOutlined />} />
           {auth.isAuthenticated && (
             <div style={{ marginLeft: 8, display: 'flex', flexDirection: 'column' }}>
-              <Text strong ellipsis>
+              <Text strong ellipsis style={{ maxWidth: '150px' }}>
                 {getUserDisplayName(auth.user?.profile)}
               </Text>
-              <Text type="secondary" style={{ fontSize: '12px' }} ellipsis>
+              <Text type="secondary" style={{ fontSize: '12px', maxWidth: '150px' }} ellipsis>
                 {auth.user?.profile.email}
               </Text>
             </div>
@@ -350,6 +361,7 @@ const App = () => {
       <Layout style={{ flex: 1, overflow: 'hidden' }}>
         <Sider
           width={260}
+          collapsedWidth={80}
           collapsible
           collapsed={collapsed}
           trigger={null}
@@ -380,49 +392,58 @@ const App = () => {
             )}
           </div>
 
-          {loadingChatSessions ? (
-            <div style={{ padding: '24px', textAlign: 'center' }}>
-              <Spin size="small" />
-              <div style={{ marginTop: '8px' }}>
-                <Text type="secondary">Loading chats...</Text>
-              </div>
-            </div>
-          ) : chatSessions.length === 0 ? (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="No chat history yet"
-              style={{ margin: '24px 0' }}
-            />
-          ) : (
-            <List
-              itemLayout="horizontal"
-              dataSource={chatSessions}
-              style={{ 
-                background: '#f0f2f5', 
-                border: 'none',
-                padding: '0 16px'
-              }}
-              renderItem={(item) => (
-                <List.Item
+          {/* Only show chat history when sidebar is expanded */}
+          {!collapsed && (
+            <>
+              {loadingChatSessions ? (
+                <div style={{ padding: '24px', textAlign: 'center' }}>
+                  <Spin size="small" />
+                  <div style={{ marginTop: '8px' }}>
+                    <Text type="secondary">Loading chats...</Text>
+                  </div>
+                </div>
+              ) : chatSessions.length === 0 ? (
+                <Empty
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                  description="No chat history yet"
+                  style={{ margin: '24px 0' }}
+                />
+              ) : (
+                <List
+                  itemLayout="horizontal"
+                  dataSource={chatSessions}
                   style={{ 
-                    padding: '8px 0',
-                    cursor: 'pointer',
-                    borderBottom: '1px solid #f0f0f0'
+                    background: '#f0f2f5', 
+                    border: 'none',
+                    padding: '0 16px'
                   }}
-                  onClick={() => loadChatSession(item.sessionId)}
-                >
-                  <List.Item.Meta
-                    avatar={<Avatar icon={<MessageOutlined />} size="small" />}
-                    title={<Text style={{ fontSize: '14px' }} ellipsis>{item.title}</Text>}
-                    description={
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        {new Date(item.timestamp).toLocaleDateString()} • {item.messageCount} messages
-                      </Text>
-                    }
-                  />
-                </List.Item>
+                  renderItem={(item) => (
+                    <List.Item
+                      style={{ 
+                        padding: '8px 0',
+                        cursor: 'pointer',
+                        borderBottom: '1px solid #f0f0f0'
+                      }}
+                      onClick={() => loadChatSession(item.sessionId)}
+                    >
+                      <List.Item.Meta
+                        avatar={<Avatar icon={<MessageOutlined />} size="small" />}
+                        title={
+                          <div style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title}
+                          </div>
+                        }
+                        description={
+                          <Text type="secondary" style={{ fontSize: '12px' }}>
+                            {new Date(item.timestamp).toLocaleDateString()} • {item.messageCount} messages
+                          </Text>
+                        }
+                      />
+                    </List.Item>
+                  )}
+                />
               )}
-            />
+            </>
           )}
         </Sider>
 
@@ -438,7 +459,7 @@ const App = () => {
           {/* Welcome and Health Status Section */}
           <div style={{ padding: '20px 20px 10px 20px' }}>
             <Title level={4} style={{ margin: 0 }}>
-              Hi {getUserDisplayName(auth.user?.profile)}
+              Hello, {getUserDisplayName(auth.user?.profile)}! 
             </Title>
           </div>
           
@@ -458,6 +479,7 @@ const App = () => {
             expanded={chatExpanded}
             onToggleExpand={toggleChatExpanded}
             userHealthProfile={profileData}
+            onChatSessionUpdated={fetchChatSessions}
           />
         </Content>
       </Layout>
