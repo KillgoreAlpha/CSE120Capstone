@@ -121,23 +121,23 @@ const BIOMARKER_UNITS = {
 // Function to analyze health data and provide a summary
 const analyzeHealthData = (healthData: HealthData | null): string => {
   if (!healthData) return "Loading your health information...";
-  
+
   // Create a summary based on trends
   const trends = healthData.trends;
   const positiveIndicators = [];
   const concernIndicators = [];
-  
+
   // Check trends for each biomarker
   if (trends.heart_rate_base === 'stable') positiveIndicators.push('heart rate');
   if (trends.body_temp_base === 'stable') positiveIndicators.push('body temperature');
   if (trends.blood_oxygen_base === 'stable' || trends.blood_oxygen_base === 'increasing') 
     positiveIndicators.push('blood oxygen');
-  
+
   if (trends.cortisol_base === 'increasing') concernIndicators.push('cortisol');
   if (trends.lactate_base === 'increasing') concernIndicators.push('lactate');
   if (trends.crp_base === 'increasing') concernIndicators.push('CRP');
   if (trends.il6_base === 'increasing') concernIndicators.push('IL-6');
-  
+
   // Generate overall health status message
   if (concernIndicators.length === 0 && positiveIndicators.length > 1) {
     return `Your health metrics look excellent! Your ${positiveIndicators.join(' and ')} are in optimal ranges.`;
@@ -154,7 +154,7 @@ const analyzeHealthData = (healthData: HealthData | null): string => {
 const getBiomarkerStatusColor = (value: number, biomarker: string) => {
   const range = NORMAL_RANGES[biomarker as keyof typeof NORMAL_RANGES];
   if (!range) return "default";
-  
+
   if (value < range.min) return "blue";
   if (value > range.max) return "red";
   return "green";
@@ -179,7 +179,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   const [loading, setLoading] = useState(true);
   const [analysisText, setAnalysisText] = useState<string>("");
   const [showGraphs, setShowGraphs] = useState(false);
-  
+
   useEffect(() => {
     // Fetch health data from the API
     const fetchHealthData = async () => {
@@ -188,46 +188,46 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
         // Fetch readings from the backend API
         const response = await fetch('http://localhost:3000/readings');
         const data = await response.json();
-        
+
         if (data && data.readings && data.readings.length > 0) {
           // Sort readings by timestamp (newest to oldest)
           const sortedReadings = [...data.readings].sort((a, b) => 
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
-          
+
           // Limit to the last 50 readings to ensure we have multiple datapoints per hour
           const recentReadings = sortedReadings.slice(0, 50);
-          
+
           // Calculate averages for each biomarker
           const biomarkers = [
             'cortisol_base', 'lactate_base', 'uric_acid_base', 'crp_base', 
             'il6_base', 'body_temp_base', 'heart_rate_base', 'blood_oxygen_base'
           ];
-          
+
           const averages: Record<string, number> = {};
           const trends: Record<string, string> = {};
-          
+
           biomarkers.forEach(biomarker => {
             const values = recentReadings
               .map(reading => reading[biomarker])
               .filter(val => val !== null && val !== undefined);
-            
+
             if (values.length > 0) {
               // Calculate average
               const sum = values.reduce((acc, val) => acc + val, 0);
               averages[biomarker] = sum / values.length;
-              
+
               // Determine trend based on first half vs second half
               if (values.length >= 4) {
                 const midpoint = Math.floor(values.length / 2);
                 const firstHalf = values.slice(0, midpoint); // More recent values
                 const secondHalf = values.slice(midpoint); // Older values
-                
+
                 const firstHalfAvg = firstHalf.reduce((acc, val) => acc + val, 0) / firstHalf.length;
                 const secondHalfAvg = secondHalf.reduce((acc, val) => acc + val, 0) / secondHalf.length;
-                
+
                 const percentChange = ((firstHalfAvg - secondHalfAvg) / secondHalfAvg) * 100;
-                
+
                 if (percentChange > 5) {
                   trends[biomarker] = "increasing";
                 } else if (percentChange < -5) {
@@ -240,7 +240,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
               }
             }
           });
-          
+
           setHealthData({
             readings: recentReadings,
             averages,
@@ -273,11 +273,11 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   // Prepare data for the vital signs chart
   const prepareVitalSignsData = () => {
     if (!healthData || !healthData.readings || healthData.readings.length === 0) return [];
-    
+
     // Sort readings by timestamp to ensure chronological order
     const sortedReadings = [...healthData.readings]
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    
+
     // Map readings to chart data format
     return sortedReadings.map(reading => ({
       name: new Date(reading.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
@@ -290,11 +290,11 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   // Prepare data for the biomarkers chart
   const prepareBiomarkersData = () => {
     if (!healthData || !healthData.readings || healthData.readings.length === 0) return [];
-    
+
     // Sort readings by timestamp to ensure chronological order
     const sortedReadings = [...healthData.readings]
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    
+
     // Map readings to chart data format
     return sortedReadings.map(reading => ({
       name: new Date(reading.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
@@ -309,21 +309,21 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   // Prepare data for the trends pie chart
   const prepareTrendsData = () => {
     if (!healthData || !healthData.trends) return [];
-    
+
     const trendsCount = {
       stable: 0,
       increasing: 0,
       decreasing: 0,
       insufficient: 0
     };
-    
+
     Object.entries(healthData.trends).forEach(([, trend]) => {
       if (trend === 'stable') trendsCount.stable++;
       else if (trend === 'increasing') trendsCount.increasing++;
       else if (trend === 'decreasing') trendsCount.decreasing++;
       else trendsCount.insufficient++;
     });
-    
+
     return [
       { name: 'Stable', value: trendsCount.stable },
       { name: 'Increasing', value: trendsCount.increasing },
@@ -382,7 +382,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                 const name = BIOMARKER_NAMES[biomarker as keyof typeof BIOMARKER_NAMES];
                 const unit = BIOMARKER_UNITS[biomarker as keyof typeof BIOMARKER_UNITS];
                 const color = getBiomarkerStatusColor(value, biomarker);
-                
+
                 return (
                   <Col xs={24} sm={8} key={biomarker}>
                     <Card>
@@ -428,7 +428,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                 const name = BIOMARKER_NAMES[biomarker as keyof typeof BIOMARKER_NAMES];
                 const unit = BIOMARKER_UNITS[biomarker as keyof typeof BIOMARKER_UNITS];
                 const color = getBiomarkerStatusColor(value, biomarker);
-                
+
                 return (
                   <Col xs={24} sm={12} md={8} lg={6} xl={4} key={biomarker}>
                     <Card>
@@ -469,7 +469,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
             Back to Summary
           </Button>
         </div>
-        
+
         <Tabs defaultActiveKey="1">
           <TabPane tab="Vital Signs" key="1">
             <Card bordered={false}>
@@ -514,7 +514,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
               )}
             </Card>
           </TabPane>
-          
+
           <TabPane tab="Biomarkers" key="2">
             <Card bordered={false}>
               {loading ? (
@@ -565,7 +565,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
               )}
             </Card>
           </TabPane>
-          
+
           <TabPane tab="Health Trends" key="3">
             <Row gutter={[16, 16]}>
               <Col xs={24} md={12}>
@@ -595,7 +595,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                   )}
                 </Card>
               </Col>
-              
+
               <Col xs={24} md={12}>
                 <Card title="Biomarker Averages" bordered={false}>
                   {loading ? (
@@ -652,5 +652,3 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
     </div>
   );
 };
-
-export default HealthDashboard;
