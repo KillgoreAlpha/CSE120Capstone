@@ -18,7 +18,7 @@ const app = express();
 app.use(express.json());
 app.use(cors({
   origin: '*', // In production, limit this to your frontend's URL
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -605,6 +605,26 @@ function getUserChatSessions(userId) {
   }
 }
 
+// Function to delete a chat session
+function deleteChatSession(userId, sessionId) {
+  try {
+    const filePath = getChatFilePath(userId, sessionId);
+    
+    // Check if the file exists
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: 'Chat session not found' };
+    }
+    
+    // Delete the file
+    fs.unlinkSync(filePath);
+    
+    return { success: true };
+  } catch (error) {
+    console.error(`Error deleting chat session: ${error.message}`);
+    return { success: false, error: error.message };
+  }
+}
+
 // ENDPOINT ROUTES
 
 // User Health Profile endpoints
@@ -709,6 +729,31 @@ app.get("/chat-history/:userId/:sessionId", (req, res) => {
     console.error("Error getting chat history:", error);
     res.status(500).json({
       error: "Failed to get chat history.",
+      details: error.message
+    });
+  }
+});
+
+// DELETE endpoint for chat sessions
+app.delete("/chat-session/:userId/:sessionId", (req, res) => {
+  try {
+    const { userId, sessionId } = req.params;
+    
+    if (!userId || !sessionId) {
+      return res.status(400).json({ error: "Missing userId or sessionId parameter." });
+    }
+    
+    const result = deleteChatSession(userId, sessionId);
+    
+    if (!result.success) {
+      return res.status(404).json({ error: result.error || "Failed to delete chat session." });
+    }
+    
+    res.json({ success: true, message: "Chat session deleted successfully." });
+  } catch (error) {
+    console.error("Error deleting chat session:", error);
+    res.status(500).json({
+      error: "Failed to delete chat session.",
       details: error.message
     });
   }

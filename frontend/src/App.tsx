@@ -21,7 +21,8 @@ import {
   LoginOutlined,
   LoadingOutlined,
   HistoryOutlined,
-  MessageOutlined
+  MessageOutlined,
+  DeleteOutlined
 } from '@ant-design/icons';
 
 // Import our components
@@ -193,6 +194,38 @@ const App = () => {
   
   const loadChatSession = (sessionId: string) => {
     fetchChatHistory(sessionId);
+  };
+  
+  // Function to delete a chat session
+  const deleteChatSession = async (chatId: string, e: React.MouseEvent) => {
+    // Stop the click event from propagating to the list item
+    e.stopPropagation();
+    
+    if (!auth.user) return;
+    
+    try {
+      const userId = getUserId(auth.user);
+      const response = await fetch(`${API_BASE_URL}/chat-session/${userId}/${chatId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete chat session');
+      }
+      
+      // If the currently active session is deleted, clear the messages
+      if (chatId === sessionId) {
+        setMessages([]);
+        setSessionId(null);
+      }
+      
+      // Refresh the chat sessions list
+      fetchChatSessions();
+      message.success('Chat deleted successfully');
+    } catch (error) {
+      console.error('Error deleting chat session:', error);
+      message.error('Failed to delete chat');
+    }
   };
 
   const toggleChatExpanded = () => {
@@ -422,14 +455,17 @@ const App = () => {
                       style={{ 
                         padding: '8px 0',
                         cursor: 'pointer',
-                        borderBottom: '1px solid #f0f0f0'
+                        borderBottom: '1px solid #f0f0f0',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
                       }}
                       onClick={() => loadChatSession(item.sessionId)}
                     >
                       <List.Item.Meta
                         avatar={<Avatar icon={<MessageOutlined />} size="small" />}
                         title={
-                          <div style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          <div style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {item.title}
                           </div>
                         }
@@ -438,6 +474,14 @@ const App = () => {
                             {new Date(item.timestamp).toLocaleDateString()} • {item.messageCount} messages
                           </Text>
                         }
+                      />
+                      <Button
+                        type="text"
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        onClick={(e) => deleteChatSession(item.sessionId, e)}
+                        style={{ marginLeft: '8px' }}
                       />
                     </List.Item>
                   )}
