@@ -6,6 +6,8 @@ import csv from "csv-parser";
 import path from "path";
 import axios from "axios";
 import cors from 'cors';
+import http from "http";
+import { WebSocketServer } from "ws";
 import {
   BedrockAgentRuntimeClient,
   InvokeAgentCommand,
@@ -15,12 +17,17 @@ import multer from 'multer';
 
 dotenv.config();
 const app = express();
+const server = http.createServer(app);
 app.use(express.json());
 app.use(cors({
   origin: '*', // In production, limit this to your frontend's URL
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
+// Set up WebSocket server for real-time data streaming
+const wss = new WebSocketServer({ server });
+const connectedClients = new Set();
 
 // Set up directory for chat storage (local atm, need to migrate to s3)
 const __filename = fileURLToPath(import.meta.url);
@@ -953,7 +960,115 @@ process.on('SIGINT', () => {
 });
 
 
+// WebSocket server event handlers
+wss.on('connection', (ws) => {
+  console.log('New WebSocket client connected');
+  connectedClients.add(ws);
+  
+  // Send initial data to the new client
+  sendLatestBiomarkerData(ws);
+  
+  ws.on('close', () => {
+    console.log('WebSocket client disconnected');
+    connectedClients.delete(ws);
+  });
+  
+  ws.on('error', (error) => {
+    console.error('WebSocket error:', error);
+    connectedClients.delete(ws);
+  });
+});
+
+// Function to broadcast biomarker data to all connected clients
+function broadcastBiomarkerData(data) {
+  const message = JSON.stringify(data);
+  for (const client of connectedClients) {
+    if (client.readyState === 1) { // WebSocket.OPEN = 1
+      client.send(message);
+    }
+  }
+}
+
+// Function to send latest biomarker data to a specific client
+async function sendLatestBiomarkerData(ws) {
+  try {
+    // Get the most recent reading from the database
+    const latestReading = db.prepare(`
+      SELECT * FROM healthReadings 
+      ORDER BY timestamp DESC
+      LIMIT 1
+    `).get();
+    
+    if (latestReading) {
+      ws.send(JSON.stringify(latestReading));
+    }
+  } catch (error) {
+    console.error('Error sending latest biomarker data:', error);
+  }
+}
+
+// Endpoint to trigger a data broadcast to all connected clients
+app.post('/broadcast-biomarker', (req, res) => {
+  try {
+    const data = req.body;
+    broadcastBiomarkerData(data);
+    res.json({ success: true, clientCount: connectedClients.size });
+  } catch (error) {
+    console.error('Error broadcasting data:', error);
+    res.status(500).json({ error: 'Failed to broadcast data' });
+  }
+});
+
+// Update the readings endpoint to broadcast data via WebSocket
+const originalPostReadingsHandler = app._router.stack
+  .filter(layer => layer.route && layer.route.path === '/readings' && layer.route.methods.post)
+  .map(layer => layer.route.stack[0].handle)[0];
+
+if (originalPostReadingsHandler) {
+  // Store the original handler
+  app._router.stack
+    .filter(layer => layer.route && layer.route.path === '/readings' && layer.route.methods.post)
+    .forEach(layer => {
+      // Replace the original handler
+      const originalHandle = layer.route.stack[0].handle;
+      layer.route.stack[0].handle = function(req, res, next) {
+        // Call the original handler
+        originalHandle(req, res, function() {
+          // After the original handler, broadcast the data
+          try {
+            broadcastBiomarkerData(req.body);
+          } catch (error) {
+            console.error('Error broadcasting data after POST /readings:', error);
+          }
+          next();
+        });
+      };
+    });
+} else {
+  console.warn('Could not find original POST /readings handler to modify');
+  
+  // Add a new middleware to broadcast after any POST to /readings
+  app.use('/readings', (req, res, next) => {
+    const originalSend = res.send;
+    res.send = function() {
+      // Call the original send
+      originalSend.apply(res, arguments);
+      
+      // After the response is sent, broadcast if it was a POST
+      if (req.method === 'POST' && res.statusCode >= 200 && res.statusCode < 300) {
+        try {
+          broadcastBiomarkerData(req.body);
+        } catch (error) {
+          console.error('Error broadcasting data after POST /readings:', error);
+        }
+      }
+    };
+    next();
+  });
+}
+
 // Start the server
-app.listen(3000, () => {
+server.listen(3000, () => {
   console.log("Server started successfully on port 3000");
+  console.log("WebSocket server enabled for real-time data streaming");
 });
