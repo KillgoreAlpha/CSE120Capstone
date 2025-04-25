@@ -164,11 +164,6 @@ const statements = {
       SET cortisol_base = ?, lactate_base = ?, uric_acid_base = ?, crp_base = ?, il6_base = ?, body_temp_base = ?, heart_rate_base = ?, blood_oxygen_base = ? 
       WHERE id = ?
     `),
-    getByTimeframe: db.prepare(`
-      SELECT * FROM healthReadings
-      WHERE timestamp BETWEEN ? AND ?
-      ORDER BY timestamp ASC
-    `),
     getBiomarkerByTimeframe: db.prepare(`
       SELECT id, :biomarker, timestamp 
       FROM healthReadings
@@ -938,114 +933,7 @@ app.get("/biomarker/:name", (req, res) => {
 
 
 
-// Health Readings Endpoints
-app.post("/readings", (req, res) => {
-  try {
-    const { cortisol_base, lactate_base, uric_acid_base, crp_base, il6_base, body_temp_base, heart_rate_base, blood_oxygen_base } = req.body;
-    
-    const result = statements.readings.insert.run(
-      cortisol_base || null, 
-      lactate_base || null, 
-      uric_acid_base || null, 
-      crp_base || null, 
-      il6_base || null,
-      body_temp_base || null,
-      heart_rate_base || null,
-      blood_oxygen_base || null
-    );
-    
-    res.json({ 
-      success: true, 
-      id: result.lastInsertRowid,
-      message: "Health reading added successfully" 
-    });
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Failed to store health reading" });
-  }
-});
-
-app.get("/readings", (req, res) => {
-  try {
-    const readings = statements.readings.getAll.all();
-    res.json({ readings });
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Failed to retrieve health readings" });
-  }
-});
-
-app.get("/readings/:id", (req, res) => {
-  try {
-    const id = req.params.id;
-    const reading = statements.readings.getById.get(id);
-    
-    if (!reading) {
-      return res.status(404).json({ error: "Reading not found" });
-    }
-    
-    res.json({ reading });
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Failed to retrieve health reading" });
-  }
-});
-
-app.put("/readings/:id", (req, res) => {
-  try {
-    const id = req.params.id;
-    const { cortisol_base, lactate_base, uric_acid_base, crp_base, il6_base, body_temp_base, heart_rate_base, blood_oxygen_base } = req.body;
-    
-    // Check if reading exists
-    const reading = statements.readings.getById.get(id);
-    if (!reading) {
-      return res.status(404).json({ error: "Reading not found" });
-    }
-    
-    statements.readings.update.run(
-      cortisol_base !== undefined ? cortisol_base : reading.cortisol_base,
-      lactate_base !== undefined ? lactate_base : reading.lactate_base,
-      uric_acid_base !== undefined ? uric_acid_base : reading.uric_acid_base,
-      crp_base !== undefined ? crp_base : reading.crp_base,
-      il6_base !== undefined ? il6_base : reading.il6_base,
-      body_temp_base !== undefined ? body_temp_base : reading.body_temp_base,
-      heart_rate_base !== undefined ? heart_rate_base : reading.heart_rate_base,
-      blood_oxygen_base !== undefined ? blood_oxygen_base : reading.blood_oxygen_base,
-      id
-    );
-    
-    res.json({ 
-      success: true, 
-      message: "Health reading updated successfully" 
-    });
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Failed to update health reading" });
-  }
-});
-
-app.delete("/readings/:id", (req, res) => {
-  try {
-    const id = req.params.id;
-    
-    // Check if reading exists
-    const reading = statements.readings.getById.get(id);
-    if (!reading) {
-      return res.status(404).json({ error: "Reading not found" });
-    }
-    
-    statements.readings.delete.run(id);
-    
-    res.json({ 
-      success: true, 
-      message: "Health reading deleted successfully" 
-    });
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Failed to delete health reading" });
-  }
-});
-
+// Health conditions Endpoints
 app.post("/conditions", (req, res) => {
   try {
     const { user_id, alcohol, drugs, no_excercise, light_exercise, heavy_exercise, diabetes, hyperthyroidism, depression } = req.body;
