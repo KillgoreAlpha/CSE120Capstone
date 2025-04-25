@@ -11,8 +11,10 @@ import {
 import { 
   SendOutlined,
   UserOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  AudioOutlined
 } from '@ant-design/icons';
+import { useDictation } from '../hooks/useDictation';
 
 const { TextArea } = Input;
 const { Text, Paragraph } = Typography;
@@ -55,7 +57,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const panelRef = useRef<HTMLDivElement>(null);
   const startY = useRef<number | null>(null);
   const API_BASE_URL = 'http://localhost:3000';
-  
+
+  const { isListening: isDictating, transcript, start, stop } = useDictation();
+
+  useEffect(() => {
+    if (transcript) {
+      setInputValue(prev => prev + (prev ? ' ' : '') + transcript);
+    }
+  }, [transcript]);
+
   // Touch event handlers for swiping
   const handleTouchStart = (e: React.TouchEvent) => {
     startY.current = e.touches[0].clientY;
@@ -308,16 +318,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             disabled={isLoading}
           />
           <Button
-            type="primary"
             shape="circle"
             icon={<SendOutlined />}
+            type="primary"
+            style={{ position: 'absolute', right: '48px', bottom: '8px' }}
+            onClick={handleSendMessage}
+            disabled={!inputValue.trim() || isLoading}
+          />
+          <Button
+            shape="circle"
+            icon={<AudioOutlined />}
             style={{
               position: 'absolute',
               right: '8px',
-              bottom: '8px'
+              bottom: '8px',
+              backgroundColor: isDictating ? '#1890ff' : undefined,
+              color: isDictating ? '#fff' : undefined,
+              borderColor: isDictating ? '#1890ff' : undefined,
             }}
-            onClick={handleSendMessage}
-            disabled={!inputValue.trim() || isLoading}
+            onClick={isDictating ? stop : start}
+            disabled={isLoading}
           />
         </div>
         
