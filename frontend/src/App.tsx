@@ -359,13 +359,22 @@ const App = () => {
         </div>
         <Space>
           {auth.isAuthenticated && (
-            <Button
-              type="text"
-              icon={<LoginOutlined />}
-              onClick={() => signOutRedirect()}
-            >
-              Logout
-            </Button>
+            <Space>
+              <Button
+                type="text"
+                icon={<UserOutlined />}
+                onClick={() => setShowProfileForm(true)}
+              >
+                Profile
+              </Button>
+              <Button
+                type="text"
+                icon={<LoginOutlined />}
+                onClick={() => signOutRedirect()}
+              >
+                Logout
+              </Button>
+            </Space>
           )}
           <Avatar icon={<UserOutlined />} />
           {auth.isAuthenticated && (
@@ -523,7 +532,7 @@ const App = () => {
         <UserHealthProfileForm
           userId={auth.user ? getUserId(auth.user) : null}
           visible={showProfileForm}
-          onClose={() => {}} // Empty function as we don't want to allow closing if no profile
+          onClose={() => setShowProfileForm(false)} 
           onComplete={handleProfileComplete}
         />
       )}

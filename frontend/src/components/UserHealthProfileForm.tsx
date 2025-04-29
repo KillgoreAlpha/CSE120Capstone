@@ -35,6 +35,7 @@ interface UserHealthProfile {
   sleepHours?: number;
   stressLevel?: string; // low, moderate, high
   dietType?: string; // omnivore, vegetarian, vegan, other
+  language?: string; // preferred language
 }
 
 interface UserHealthProfileFormProps {
@@ -254,6 +255,27 @@ const UserHealthProfileForm: React.FC<UserHealthProfileFormProps> = ({
             </Select>
           </Form.Item>
           
+          <Form.Item
+            name="language"
+            label="Preferred Language"
+            rules={[{ required: true, message: 'Please select your preferred language' }]}
+          >
+            <Select placeholder="Select your preferred language">
+              <Option value="english">English</Option>
+              <Option value="spanish">Spanish</Option>
+              <Option value="french">French</Option>
+              <Option value="german">German</Option>
+              <Option value="chinese">Chinese</Option>
+              <Option value="japanese">Japanese</Option>
+              <Option value="korean">Korean</Option>
+              <Option value="arabic">Arabic</Option>
+              <Option value="russian">Russian</Option>
+              <Option value="portuguese">Portuguese</Option>
+              <Option value="italian">Italian</Option>
+              <Option value="hindi">Hindi</Option>
+            </Select>
+          </Form.Item>
+          
           {useMetric ? (
             // Metric height input (cm)
             <Form.Item name="height" label="Height (cm)">
@@ -423,6 +445,7 @@ const UserHealthProfileForm: React.FC<UserHealthProfileFormProps> = ({
       footer={null}
       width={600}
       maskStyle={{ backdropFilter: 'blur(5px)' }}
+      destroyOnClose={false}
       centered
     >
       <div style={{ padding: '20px 0' }}>

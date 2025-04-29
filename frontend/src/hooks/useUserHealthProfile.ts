@@ -15,6 +15,7 @@ export interface UserHealthProfile {
   sleepHours?: number;
   stressLevel?: string; // low, moderate, high
   dietType?: string; // omnivore, vegetarian, vegan, other
+  language?: string; // preferred language
 }
 
 // API base URL
@@ -130,7 +131,8 @@ export const useUserHealthProfile = (userId: string | null) => {
         : 'Not specified'
       }`,
       `Stress Level: ${profileData.stressLevel || 'Not specified'}`,
-      `Diet Type: ${profileData.dietType || 'Not specified'}`
+      `Diet Type: ${profileData.dietType || 'Not specified'}`,
+      `Preferred Language: ${profileData.language || 'English (default)'}`
     ];
     
     return sections.join('\n');
