@@ -5,11 +5,11 @@ import './index.css'
 import App from './App.tsx'
 
 const cognitoAuthConfig = {
-  authority: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_hMAEqApn8",
-  client_id: "7n7tk1jf3cvp2u5ftdodr7h36l",
-  redirect_uri: import.meta.env.VITE_REDIRECT_URI,
+  authority: "https://cognito-idp.us-east-2.amazonaws.com/us-east-2_nWZ5q1nTl",
+  client_id: "2fc16d957rc3aa0kj9bp91vp1i",
+  redirect_uri: "http://localhost:5173",
   response_type: "code",
-  scope: "email openid phone",
+  scope: "phone openid email",
 };
 
 createRoot(document.getElementById('root')!).render(
