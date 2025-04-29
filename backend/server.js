@@ -1,19 +1,21 @@
+import 'dotenv/config';
 import express from "express";
 import Database from "better-sqlite3";
-import dotenv from "dotenv";
 import fs from "fs";
 import csv from "csv-parser";
 import path from "path";
 import axios from "axios";
 import cors from 'cors';
+import multer from 'multer';
 import {
   BedrockAgentRuntimeClient,
   InvokeAgentCommand,
 } from "@aws-sdk/client-bedrock-agent-runtime";
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { TranscribeClient, StartTranscriptionJobCommand, GetTranscriptionJobCommand } from "@aws-sdk/client-transcribe";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { fileURLToPath } from 'url';
-import multer from 'multer';
 
-dotenv.config();
 const app = express();
 app.use(express.json());
 app.use(cors({
@@ -46,10 +48,74 @@ const storage = multer.diskStorage({
   }
 });
 
+const upload = multer({ storage });
+
 // AWS Bedrock Agent configuration - use env vars or fallback to hardcoded values
 const AGENT_ID = process.env.AGENT_ID || "AJBHXXILZN";
 const AGENT_ALIAS_ID = process.env.AGENT_ALIAS_ID || "AVKP1ITZAA";
-const AWS_REGION = process.env.AWS_REGION || "us-east-1";
+const AWS_REGION = process.env.AWS_REGION || "us-east-2";
+
+const s3 = new S3Client({ region: AWS_REGION });
+const transcribeClient = new TranscribeClient({ region: AWS_REGION });
+const AUDIO_BUCKET = process.env.AUDIO_BUCKET;
+const TRANSCRIBE_ROLE_ARN = process.env.AWS_TRANSCRIBE_ROLE_ARN;
+// AWS Transcribe helper function
+async function transcribeWithAWS(filePath, fileName) {
+  // 1. Upload to S3
+  const fileStream = fs.createReadStream(filePath);
+  // console.log('📤 Uploading to S3 bucket:', AUDIO_BUCKET, 'Key:', fileName);
+  await s3.send(new PutObjectCommand({
+    Bucket: AUDIO_BUCKET,
+    Key: fileName,
+    Body: fileStream,
+    ContentType: "audio/webm"
+  }));
+  // console.log('✅ S3 upload succeeded:', fileName);
+  // 2. Start Transcription Job
+  const jobName = `dictation-${Date.now()}`;
+  // console.log('📝 Starting Transcribe job:', jobName);
+  await transcribeClient.send(new StartTranscriptionJobCommand({
+    TranscriptionJobName: jobName,
+    LanguageCode: "en-US",
+    MediaFormat: fileName.split('.').pop(),
+    Media: { MediaFileUri: `s3://${AUDIO_BUCKET}/${fileName}` },
+    JobExecutionSettings: {
+      DataAccessRoleArn: TRANSCRIBE_ROLE_ARN
+    },
+  }));
+  // console.log('✅ Transcribe job started:', jobName);
+  // 3. Poll until complete
+  let status = "IN_PROGRESS";
+  while (status === "IN_PROGRESS") {
+    await new Promise(r => setTimeout(r, 2000));
+    const data = await transcribeClient.send(new GetTranscriptionJobCommand({ TranscriptionJobName: jobName }));
+    status = data.TranscriptionJob.TranscriptionJobStatus;
+    if (status === "FAILED") throw new Error("Transcription job failed");
+    if (status === "COMPLETED") {
+      const transcriptUri = data.TranscriptionJob.Transcript.TranscriptFileUri;
+      const transcriptData = await axios.get(transcriptUri).then(r => r.data);
+      return transcriptData.results.transcripts.map(t => t.transcript).join(" ");
+    }
+  }
+}
+// Transcription endpoint using AWS Transcribe
+app.post('/api/transcribe', upload.single('file'), async (req, res) => {
+  // console.log('🔍 /api/transcribe invoked');
+  console.log('Received file object:', req.file);
+  const { file } = req;
+  if (!file) return res.status(400).json({ error: 'No file uploaded' });
+  const fileName = `${Date.now()}-${file.originalname}`;
+  try {
+    const transcript = await transcribeWithAWS(file.path, fileName);
+    // console.log('✅ Transcription result:', transcript);
+    res.json({ transcript });
+  } catch (err) {
+    console.error('AWS Transcribe error:', err);
+    res.status(500).json({ error: 'Transcription failed' });
+  } finally {
+    fs.unlinkSync(file.path);
+  }
+});
 
 // Initialize SQLite database
 const db = new Database('userHealth.db');
@@ -97,11 +163,6 @@ const statements = {
       UPDATE healthReadings 
       SET cortisol_base = ?, lactate_base = ?, uric_acid_base = ?, crp_base = ?, il6_base = ?, body_temp_base = ?, heart_rate_base = ?, blood_oxygen_base = ? 
       WHERE id = ?
-    `),
-    getByTimeframe: db.prepare(`
-      SELECT * FROM healthReadings
-      WHERE timestamp BETWEEN ? AND ?
-      ORDER BY timestamp ASC
     `),
     getBiomarkerByTimeframe: db.prepare(`
       SELECT id, :biomarker, timestamp 
@@ -980,6 +1041,7 @@ app.delete("/readings/:id", (req, res) => {
   }
 });
 
+// Health conditions Endpoints
 app.post("/conditions", (req, res) => {
   try {
     const { user_id, alcohol, drugs, no_excercise, light_exercise, heavy_exercise, diabetes, hyperthyroidism, depression } = req.body;

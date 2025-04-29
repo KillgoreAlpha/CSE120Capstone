@@ -15,7 +15,9 @@
   "dependencies": {
     "@aws-sdk/client-bedrock-agent-runtime": "^3.765.0",
     "@aws-sdk/client-bedrock-runtime": "^3.758.0",
-    "@aws-sdk/client-s3": "^3.758.0",
+    "@aws-sdk/client-s3": "^3.796.0",
+    "@aws-sdk/client-transcribe": "^3.796.0",
+    "@aws-sdk/s3-request-presigner": "^3.796.0",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.6.2",
     "better-sqlite3": "^11.9.1",
