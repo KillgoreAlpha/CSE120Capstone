@@ -1,8 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from "react-oidc-context";
 import {
   Layout,
-  Input,
   Button,
   Avatar,
   Typography,
@@ -13,10 +12,12 @@ import {
   message,
   List,
   Empty,
+  Drawer,
+  Menu,
+  Divider,,
   Tabs
 } from 'antd';
 import {
-  SendOutlined,
   PlusOutlined,
   UserOutlined,
   MenuFoldOutlined,
@@ -25,13 +26,26 @@ import {
   LoadingOutlined,
   HistoryOutlined,
   MessageOutlined,
+  DeleteOutlined,
+  DashboardOutlined,
+  SettingOutlined,
+  FileTextOutlined,
   LineChartOutlined,
   CommentOutlined
 } from '@ant-design/icons';
+
+// Import our components
+import HealthDashboard from './components/HealthDashboard';
+import ChatPanel from './components/ChatPanel';
+import UserHealthProfileForm from './components/UserHealthProfileForm';
+import ResearchPapers from './components/ResearchPapers';
+import { useUserHealthProfile } from './hooks/useUserHealthProfile';
+
+// Import responsive styles
+import './responsive.css';
 import LiveDataDashboard from './components/graphs/LiveDataDashboard';
 
 const { Header, Sider, Content } = Layout;
-const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
 
 interface ChatSession {
@@ -51,32 +65,48 @@ const API_BASE_URL = 'http://localhost:3000';
 
 const App = () => {
   const [collapsed, setCollapsed] = useState(false);
-  const [inputValue, setInputValue] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [loadingChatSessions, setLoadingChatSessions] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [activeSection, setActiveSection] = useState<'dashboard' | 'research'>('dashboard');
   const auth = useAuth();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  // Function to scroll to bottom of messages
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  
+  // Set up responsive behavior
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Check on mount
+    checkMobile();
+    
+    // Add resize listener
+    window.addEventListener('resize', checkMobile);
+    
+    // Clean up
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+  
+  // Define getUserId function
+  const getUserId = (user: any): string => {
+    // Use sub claim as unique user identifier
+    return user?.profile?.sub || user?.profile?.["cognito:username"] || user?.profile?.email || 'anonymous';
   };
+  
+  // Add user health profile functionality
+  const {
+    profileData,
+    showProfileForm,
+    setShowProfileForm,
+    saveProfile
+  } = useUserHealthProfile(auth.isAuthenticated && auth.user ? getUserId(auth.user) : null);
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Fetch chat sessions when user is authenticated
-  useEffect(() => {
-    if (auth.isAuthenticated && auth.user) {
-      fetchChatSessions();
-    }
-  }, [auth.isAuthenticated, auth.user]);
-
-  const fetchChatSessions = async () => {
+  const fetchChatSessions = useCallback(async () => {
     if (!auth.user) return;
     
     setLoadingChatSessions(true);
@@ -96,12 +126,75 @@ const App = () => {
     } finally {
       setLoadingChatSessions(false);
     }
-  };
+  }, [auth.user]);
+  
+  // Fetch chat sessions when user is authenticated
+  useEffect(() => {
+    if (auth.isAuthenticated && auth.user) {
+      fetchChatSessions();
+    }
+  }, [auth.isAuthenticated, auth.user, fetchChatSessions]);
+  
+  // Check if user is admin based on Cognito groups
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!auth.isAuthenticated || !auth.user) {
+        setIsAdmin(false);
+        return;
+      }
+      
+      // First, check if we can determine admin status from Cognito groups
+      try {
+        // Log user profile for debugging (remove in production)
+        console.log('Auth user profile:', auth.user.profile);
+        
+        // Check for 'cognito:groups' claim which contains user's groups
+        const userGroups = auth.user.profile?.['cognito:groups'] || [];
+        
+        if (Array.isArray(userGroups)) {
+          // Check if user is in the administrators group
+          if (userGroups.includes('administrators')) {
+            setIsAdmin(true);
+            return;
+          }
+        } else if (typeof userGroups === 'string') {
+          // Sometimes groups might be delivered as a comma-separated string
+          const groupsArray = userGroups.split(',');
+          if (groupsArray.includes('administrators')) {
+            setIsAdmin(true);
+            return;
+          }
+        }
+        
+        // Fallback to server-side check if group information isn't available in token
+        const userId = getUserId(auth.user);
+        const isDev = process.env.NODE_ENV === 'development';
+        const response = await fetch(`${API_BASE_URL}/research/check-admin/${userId}${isDev ? '?testAdmin=true' : ''}`);
+        
+        if (!response.ok) {
+          if (response.status === 403) {
+            setIsAdmin(false);
+            return;
+          }
+          throw new Error('Failed to check admin status');
+        }
+        
+        const data = await response.json();
+        setIsAdmin(data.isAdmin);
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        // For development, you can uncomment the line below for testing
+        // setIsAdmin(true);
+        setIsAdmin(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, [auth.isAuthenticated, auth.user]);
 
   const fetchChatHistory = async (sessionId: string) => {
     if (!auth.user) return;
     
-    setIsLoading(true);
     try {
       const userId = getUserId(auth.user);
       const response = await fetch(`${API_BASE_URL}/chat-history/${userId}/${sessionId}`);
@@ -113,21 +206,21 @@ const App = () => {
       const data = await response.json();
       setMessages(data.messages || []);
       setSessionId(data.sessionId);
+      setChatExpanded(true);
     } catch (error) {
       console.error('Error fetching chat history:', error);
       message.error('Failed to load chat conversation');
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  const getUserId = (user: any): string => {
-    // Use sub claim as unique user identifier
-    return user.profile.sub || user.profile["cognito:username"] || user.profile.email || 'anonymous';
-  };
+  // getUserId function already defined above
 
   const toggleSider = () => {
-    setCollapsed(!collapsed);
+    if (isMobile) {
+      setMobileMenuOpen(!mobileMenuOpen);
+    } else {
+      setCollapsed(!collapsed);
+    }
   };
 
   // Get a display name from the user profile
@@ -145,8 +238,19 @@ const App = () => {
   const getUserDisplayName = (profile?: UserProfile): string => {
     if (!profile) return 'User';
     
-    // Try to get name from cognito:username (remove any numeric suffixes if present)
-    const username = profile.authenticated;
+    // First priority: given_name (first name)
+    if (profile.given_name) {
+      return profile.given_name;
+    }
+    
+    // Second priority: name, take first part if it has spaces
+    if (profile.name) {
+      const firstName = profile.name.split(' ')[0];
+      return firstName;
+    }
+    
+    // Third priority: cognito username
+    const username = profile.authenticated || profile["cognito:username"];
     if (username) {
       // Clean up username if needed (e.g., remove numbers at the end, capitalize)
       const cleanUsername = username.replace(/[0-9]+$/, '');
@@ -178,84 +282,69 @@ const App = () => {
     window.location.href = `${cognitoDomain}/logout?client_id=${clientId}&logout_uri=${encodeURIComponent(logoutUri)}&redirect_uri=${encodeURIComponent(logoutUri)}`;
   };
 
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return;
-    
-    const userMessage = inputValue.trim();
-    setInputValue('');
-    
-    // Add user message to chat
-    const userMessageObj = { role: 'user', content: userMessage };
-    setMessages(prev => [...prev, userMessageObj]);
-    
-    // Set loading state
-    setIsLoading(true);
-    
-    try {
-      // Get user ID for chat history tracking
-      const userId = auth.user ? getUserId(auth.user) : null;
-      
-      const response = await fetch(`${API_BASE_URL}/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          question: userMessage,
-          sessionId: sessionId,
-          userId: userId
-        }),
-      });
-      
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-      
-      const data = await response.json();
-      
-      // Save the session ID for future requests
-      if (data.sessionId && !sessionId) {
-        setSessionId(data.sessionId);
-      }
-      
-      // Add assistant response to chat
-      const assistantMessageObj = { role: 'assistant', content: data.response };
-      setMessages(prev => [...prev, assistantMessageObj]);
-      
-      // Refresh chat sessions list if this is a new chat
-      if (auth.isAuthenticated && (!sessionId || sessionId !== data.sessionId)) {
-        // Wait a bit for the backend to save the chat before fetching
-        setTimeout(() => fetchChatSessions(), 500);
-      }
-    } catch (error) {
-      console.error('Error sending message:', error);
-      message.error('Failed to send message. Please try again.');
-      
-      // Add error message to chat
-      const errorMessageObj = { 
-        role: 'assistant', 
-        content: 'Sorry, I encountered an error processing your request. Please try again.' 
-      };
-      setMessages(prev => [...prev, errorMessageObj]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: { key: string; shiftKey: any; preventDefault: () => void; }) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
   const startNewChat = () => {
     setMessages([]);
     setSessionId(null);
+    setChatExpanded(true);
   };
   
   const loadChatSession = (sessionId: string) => {
     fetchChatHistory(sessionId);
+  };
+  
+  // Function to delete a chat session
+  const deleteChatSession = async (chatId: string, e: React.MouseEvent) => {
+    // Stop the click event from propagating to the list item
+    e.stopPropagation();
+    
+    if (!auth.user) return;
+    
+    try {
+      const userId = getUserId(auth.user);
+      const response = await fetch(`${API_BASE_URL}/chat-session/${userId}/${chatId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete chat session');
+      }
+      
+      // If the currently active session is deleted, clear the messages
+      if (chatId === sessionId) {
+        setMessages([]);
+        setSessionId(null);
+      }
+      
+      // Refresh the chat sessions list
+      fetchChatSessions();
+      message.success('Chat deleted successfully');
+    } catch (error) {
+      console.error('Error deleting chat session:', error);
+      message.error('Failed to delete chat');
+    }
+  };
+
+  const toggleChatExpanded = () => {
+    setChatExpanded(!chatExpanded);
+  };
+  
+  // Handle profile form completion
+  const handleProfileComplete = async (profileData: any) => {
+    if (auth.isAuthenticated && auth.user) {
+      try {
+        // Use the saveProfile function from the hook instead of making a direct API call
+        // This will update both the server and the local state
+        await saveProfile(profileData);
+        
+        console.log('Successfully saved profile to server');
+        
+        // The hook will automatically update state and hide the form after successful save
+        // No need to call setShowProfileForm(false) here
+      } catch (error) {
+        console.error('Error saving profile:', error);
+        message.error('Failed to save health profile');
+      }
+    }
   };
 
   const blurStyle = !auth.isAuthenticated ? {
@@ -276,10 +365,10 @@ const App = () => {
       }}>
         <Spin
           indicator={<LoadingOutlined style={{ fontSize: 32 }} spin />}
-          rootClassName="full-screen-spin"
-        >
-          <div>Loading your session...</div>
-        </Spin>
+        />
+        <div style={{ marginTop: '16px' }}>
+          Loading your session...
+        </div>
       </div>
     );
   }
@@ -346,6 +435,129 @@ const App = () => {
         </Card>
       </Modal>
 
+      {/* Mobile Menu Drawer - only shown on mobile */}
+      <Drawer
+        title="X10e Menu"
+        placement="left"
+        onClose={() => setMobileMenuOpen(false)}
+        open={isMobile && mobileMenuOpen}
+        className="mobile-menu-drawer"
+        width={250}
+        styles={{ body: { padding: 0 } }}
+      >
+        <Menu
+          mode="inline"
+          defaultSelectedKeys={['dashboard']}
+          style={{ height: '100%', borderRight: 0 }}
+          items={[
+            {
+              key: 'dashboard',
+              icon: <DashboardOutlined />,
+              label: 'Dashboard',
+              onClick: () => {
+                setMobileMenuOpen(false);
+                setChatExpanded(false);
+                setActiveSection('dashboard');
+              }
+            },
+            {
+              key: 'new-chat',
+              icon: <PlusOutlined />,
+              label: 'New Chat',
+              onClick: () => {
+                startNewChat();
+                setMobileMenuOpen(false);
+              }
+            },
+            {
+              key: 'chat-history',
+              icon: <HistoryOutlined />,
+              label: 'Chat History'
+            },
+            {
+              key: 'profile',
+              icon: <UserOutlined />,
+              label: 'Health Profile',
+              onClick: () => {
+                setShowProfileForm(true);
+                setMobileMenuOpen(false);
+              }
+            },
+            ...(isAdmin ? [
+              {
+                key: 'research',
+                icon: <FileTextOutlined />,
+                label: 'Manage LLM Data',
+                onClick: () => {
+                  setMobileMenuOpen(false);
+                  setChatExpanded(false);
+                  setActiveSection('research');
+                }
+              }
+            ] : []),
+            {
+              key: 'settings',
+              icon: <SettingOutlined />,
+              label: 'Settings'
+            },
+            {
+              key: 'logout',
+              icon: <LoginOutlined />,
+              label: 'Logout',
+              onClick: () => signOutRedirect()
+            }
+          ]}
+        />
+        
+        {/* Chat history in mobile menu */}
+        {auth.isAuthenticated && (
+          <div style={{ padding: '0 16px 16px 16px' }}>
+            <Divider orientation="left" style={{ fontSize: '14px', margin: '8px 0 16px 0' }}>
+              Recent Chats
+            </Divider>
+            
+            {loadingChatSessions ? (
+              <div style={{ padding: '16px', textAlign: 'center' }}>
+                <Spin size="small" />
+              </div>
+            ) : chatSessions.length === 0 ? (
+              <Empty 
+                image={Empty.PRESENTED_IMAGE_SIMPLE} 
+                description="No chat history yet" 
+                style={{ margin: '16px 0' }}
+              />
+            ) : (
+              <List
+                size="small"
+                dataSource={chatSessions.slice(0, 5)} // Limit to 5 most recent
+                renderItem={(item) => (
+                  <List.Item
+                    style={{ 
+                      padding: '8px 0',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid #f0f0f0'
+                    }}
+                    onClick={() => {
+                      loadChatSession(item.sessionId);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <List.Item.Meta
+                      avatar={<Avatar icon={<MessageOutlined />} size="small" />}
+                      title={
+                        <div style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.title}
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            )}
+          </div>
+        )}
+      </Drawer>
+
       {/* Main Layout - with blur effect when not authenticated */}
       <Header style={{
         background: '#fff',
@@ -364,22 +576,31 @@ const App = () => {
           <Title level={4} style={{ margin: 0, marginLeft: 16 }}>X10e</Title>
         </div>
         <Space>
-          {auth.isAuthenticated && (
-            <Button
-              type="text"
-              icon={<LoginOutlined />}
-              onClick={() => signOutRedirect()}
-            >
-              Logout
-            </Button>
+          {auth.isAuthenticated && !isMobile && (
+            <Space>
+              <Button
+                type="text"
+                icon={<UserOutlined />}
+                onClick={() => setShowProfileForm(true)}
+              >
+                Profile
+              </Button>
+              <Button
+                type="text"
+                icon={<LoginOutlined />}
+                onClick={() => signOutRedirect()}
+              >
+                Logout
+              </Button>
+            </Space>
           )}
           <Avatar icon={<UserOutlined />} />
           {auth.isAuthenticated && (
-            <div style={{ marginLeft: 8, display: 'flex', flexDirection: 'column' }}>
-              <Text strong ellipsis>
+            <div style={{ marginLeft: 8, display: 'flex', flexDirection: 'column' }} className="user-info-text">
+              <Text strong ellipsis style={{ maxWidth: '150px' }}>
                 {getUserDisplayName(auth.user?.profile)}
               </Text>
-              <Text type="secondary" style={{ fontSize: '12px' }} ellipsis>
+              <Text type="secondary" style={{ fontSize: '12px', maxWidth: '150px' }} ellipsis>
                 {auth.user?.profile.email}
               </Text>
             </div>
@@ -388,85 +609,142 @@ const App = () => {
       </Header>
 
       <Layout style={{ flex: 1, overflow: 'hidden' }}>
-        <Sider
-          width={260}
-          collapsible
-          collapsed={collapsed}
-          trigger={null}
-          style={{
-            background: '#f0f2f5',
-            height: '100%',
-            overflow: 'auto',
-            ...blurStyle
-          }}
-        >
-          <div style={{ padding: '16px' }}>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              style={{ width: '100%' }}
-              onClick={startNewChat}
-            >
-              {!collapsed && 'New chat'}
-            </Button>
-            
-            {!collapsed && (
-              <div style={{ margin: '16px 8px 8px 8px' }}>
-                <Space align="center">
-                  <HistoryOutlined />
-                  <Text strong>Chat History</Text>
-                </Space>
-              </div>
-            )}
-          </div>
-
-          {loadingChatSessions ? (
-            <div style={{ padding: '24px', textAlign: 'center' }}>
-              <Spin size="small" />
-              <div style={{ marginTop: '8px' }}>
-                <Text type="secondary">Loading chats...</Text>
-              </div>
-            </div>
-          ) : chatSessions.length === 0 ? (
-            <Empty
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="No chat history yet"
-              style={{ margin: '24px 0' }}
-            />
-          ) : (
-            <List
-              itemLayout="horizontal"
-              dataSource={chatSessions}
-              style={{ 
-                background: '#f0f2f5', 
-                border: 'none',
-                padding: '0 16px'
-              }}
-              renderItem={(item) => (
-                <List.Item
-                  style={{ 
-                    padding: '8px 0',
-                    cursor: 'pointer',
-                    borderBottom: '1px solid #f0f0f0'
-                  }}
-                  onClick={() => loadChatSession(item.sessionId)}
-                >
-                  <List.Item.Meta
-                    avatar={<Avatar icon={<MessageOutlined />} size="small" />}
-                    title={<Text style={{ fontSize: '14px' }} ellipsis>{item.title}</Text>}
-                    description={
-                      <Text type="secondary" style={{ fontSize: '12px' }}>
-                        {new Date(item.timestamp).toLocaleDateString()} • {item.messageCount} messages
-                      </Text>
-                    }
-                  />
-                </List.Item>
+        {/* Only show Sider on desktop */}
+        {!isMobile && (
+          <Sider
+            width={260}
+            collapsedWidth={80}
+            collapsible
+            collapsed={collapsed}
+            trigger={null}
+            style={{
+              background: '#f0f2f5',
+              height: '100%',
+              overflow: 'auto',
+              ...blurStyle
+            }}
+          >
+            <div style={{ padding: '16px' }}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                style={{ width: '100%' }}
+                onClick={startNewChat}
+              >
+                {!collapsed && 'New chat'}
+              </Button>
+              
+              {!collapsed && (
+                <div style={{ margin: '16px 0 8px 0' }}>
+                  <Button
+                    type={activeSection === 'dashboard' ? 'default' : 'text'}
+                    block
+                    icon={<DashboardOutlined />}
+                    onClick={() => {
+                      setActiveSection('dashboard');
+                      setChatExpanded(false);
+                    }}
+                    style={{ textAlign: 'left', marginBottom: '8px' }}
+                  >
+                    Dashboard
+                  </Button>
+                  
+                  {isAdmin && (
+                    <Button
+                      type={activeSection === 'research' ? 'default' : 'text'}
+                      block
+                      icon={<FileTextOutlined />}
+                      onClick={() => {
+                        setActiveSection('research');
+                        setChatExpanded(false);
+                      }}
+                      style={{ textAlign: 'left', marginBottom: '8px' }}
+                    >
+                      Manage LLM Data
+                    </Button>
+                  )}
+                </div>
               )}
-            />
-          )}
-        </Sider>
+              
+              {!collapsed && (
+                <div style={{ margin: '16px 8px 8px 8px' }}>
+                  <Space align="center">
+                    <HistoryOutlined />
+                    <Text strong>Chat History</Text>
+                  </Space>
+                </div>
+              )}
+            </div>
+
+            {/* Only show chat history when sidebar is expanded */}
+            {!collapsed && (
+              <>
+                {loadingChatSessions ? (
+                  <div style={{ padding: '24px', textAlign: 'center' }}>
+                    <Spin size="small" />
+                    <div style={{ marginTop: '8px' }}>
+                      <Text type="secondary">Loading chats...</Text>
+                    </div>
+                  </div>
+                ) : chatSessions.length === 0 ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="No chat history yet"
+                    style={{ margin: '24px 0' }}
+                  />
+                ) : (
+                  <List
+                    itemLayout="horizontal"
+                    dataSource={chatSessions}
+                    style={{ 
+                      background: '#f0f2f5', 
+                      border: 'none',
+                      padding: '0 16px'
+                    }}
+                    renderItem={(item) => (
+                      <List.Item
+                        style={{ 
+                          padding: '8px 0',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #f0f0f0',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                        onClick={() => loadChatSession(item.sessionId)}
+                      >
+                        <List.Item.Meta
+                          avatar={<Avatar icon={<MessageOutlined />} size="small" />}
+                          title={
+                            <div style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.title}
+                            </div>
+                          }
+                          description={
+                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                              {new Date(item.timestamp).toLocaleDateString()} • {item.messageCount} messages
+                            </Text>
+                          }
+                        />
+                        <Button
+                          type="text"
+                          danger
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          onClick={(e) => deleteChatSession(item.sessionId, e)}
+                          style={{ marginLeft: '8px' }}
+                        />
+                      </List.Item>
+                    )}
+                  />
+                )}
+              </>
+            )}
+          </Sider>
+        )}
 
         <Content style={{
+          position: 'relative',
           display: 'flex',
           flexDirection: 'column',
           background: '#fff',
@@ -474,176 +752,46 @@ const App = () => {
           overflow: 'hidden',
           ...blurStyle
         }}>
-          <Tabs
-            defaultActiveKey="chat"
-            style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}
-            items={[
-              {
-                key: 'chat',
-                label: (
-                  <span>
-                    <CommentOutlined />
-                    Chat
-                  </span>
-                ),
-                children: (
-                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
-                    <div style={{
-                      flex: 1,
-                      overflow: 'auto',
-                      padding: '20px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                    }}>
-                      {messages.length === 0 ? (
-                        <div style={{ 
-                          flex: 1, 
-                          display: 'flex', 
-                          justifyContent: 'center', 
-                          alignItems: 'center' 
-                        }}>
-                          <Text type="secondary">
-                            How can I help you today?
-                          </Text>
-                        </div>
-                      ) : (
-                        <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                          {messages.map((msg, index) => (
-                            <div 
-                              key={index} 
-                              style={{ 
-                                marginBottom: '16px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
-                              }}
-                            >
-                              <Card 
-                                style={{ 
-                                  maxWidth: '80%',
-                                  background: msg.role === 'user' ? '#e6f7ff' : '#f5f5f5',
-                                  borderRadius: '8px',
-                                }}
-                                bodyStyle={{ padding: '12px 16px' }}
-                              >
-                                <div style={{ 
-                                  display: 'flex',
-                                  marginBottom: '4px'
-                                }}>
-                                  <Avatar 
-                                    size="small" 
-                                    icon={msg.role === 'user' ? <UserOutlined /> : null}
-                                    src={msg.role === 'assistant' ? "https://static.wixstatic.com/media/1a1b30_ffdd9eff1dba4c6896bdd859e4bc9839~mv2.png/v1/fill/w_120,h_90,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo.png" : null}
-                                    style={{ marginRight: '8px' }}
-                                  />
-                                  <Text strong>{msg.role === 'user' ? 'You' : 'X10e'}</Text>
-                                </div>
-                                <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                                  {msg.content}
-                                </Paragraph>
-                              </Card>
-                            </div>
-                          ))}
-                          {isLoading && (
-                            <div style={{ 
-                              marginBottom: '16px',
-                              display: 'flex',
-                              flexDirection: 'column',
-                              alignItems: 'flex-start'
-                            }}>
-                              <Card
-                                style={{
-                                  maxWidth: '80%',
-                                  background: '#f5f5f5',
-                                  borderRadius: '8px',
-                                }}
-                                bodyStyle={{ padding: '12px 16px' }}
-                              >
-                                <div style={{ display: 'flex', marginBottom: '4px' }}>
-                                  <Avatar 
-                                    size="small" 
-                                    src="https://static.wixstatic.com/media/1a1b30_ffdd9eff1dba4c6896bdd859e4bc9839~mv2.png/v1/fill/w_120,h_90,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo.png"
-                                    style={{ marginRight: '8px' }}
-                                  />
-                                  <Text strong>X10e</Text>
-                                </div>
-                                <Spin indicator={<LoadingOutlined style={{ fontSize: 16 }} spin />}><div></div></Spin>
-                              </Card>
-                            </div>
-                          )}
-                          <div ref={messagesEndRef} />
-                        </div>
-                      )}
-                    </div>
-
-                    <div style={{
-                      padding: '16px',
-                      borderTop: '1px solid #f0f0f0',
-                      background: '#fff',
-                      position: 'sticky',
-                      bottom: 0
-                    }}>
-                      <div style={{
-                        maxWidth: '800px',
-                        margin: '0 auto',
-                        position: 'relative'
-                      }}>
-                        <TextArea
-                          value={inputValue}
-                          onChange={e => setInputValue(e.target.value)}
-                          onKeyDown={handleKeyDown}
-                          placeholder="Type your message here..."
-                          autoSize={{ minRows: 1, maxRows: 6 }}
-                          style={{
-                            paddingRight: '40px',
-                            borderRadius: '8px'
-                          }}
-                          disabled={isLoading}
-                        />
-                        <Button
-                          type="primary"
-                          shape="circle"
-                          icon={<SendOutlined />}
-                          style={{
-                            position: 'absolute',
-                            right: '8px',
-                            bottom: '8px'
-                          }}
-                          onClick={handleSendMessage}
-                          disabled={!inputValue.trim() || isLoading}
-                        />
-                      </div>
-                      <div style={{
-                        textAlign: 'center',
-                        marginTop: '8px'
-                      }}>
-                        <Text type="secondary" style={{ fontSize: '12px' }}>
-                          X10e's LLM can make mistakes. If you are feeling unwell, please schedule an appointment with your healthcare provider.
-                          If this is an emergency, please call 911.
-                        </Text>
-                      </div>
-                    </div>
-                  </div>
-                ),
-              },
-              {
-                key: 'liveData',
-                label: (
-                  <span>
-                    <LineChartOutlined />
-                    Live Biomarker Data
-                  </span>
-                ),
-                children: (
-                  <div style={{ overflow: 'auto', height: '100%', padding: '0 20px' }}>
-                    <LiveDataDashboard refreshInterval={2000} showPoints={true} />
-                  </div>
-                ),
-              },
-            ]}
+          {/* Conditional rendering based on activeSection */}
+          {activeSection === 'dashboard' && (
+            <HealthDashboard 
+              userId={auth.user ? getUserId(auth.user) : null}
+              isVisible={!chatExpanded}
+            />
+          )}
+          
+          {/* Research Papers Section - Only visible to admins */}
+          {activeSection === 'research' && isAdmin && (
+            <ResearchPapers 
+              userId={auth.user ? getUserId(auth.user) : null}
+              isVisible={!chatExpanded}
+            />
+          )}
+          
+          {/* Chat Panel Section */}
+          <ChatPanel
+            userId={auth.user ? getUserId(auth.user) : null}
+            messages={messages}
+            setMessages={setMessages}
+            sessionId={sessionId}
+            setSessionId={setSessionId}
+            expanded={chatExpanded}
+            onToggleExpand={toggleChatExpanded}
+            userHealthProfile={profileData}
+            onChatSessionUpdated={fetchChatSessions}
           />
         </Content>
       </Layout>
+      
+      {/* User Health Profile Form */}
+      {auth.isAuthenticated && (
+        <UserHealthProfileForm
+          userId={auth.user ? getUserId(auth.user) : null}
+          visible={showProfileForm}
+          onClose={() => setShowProfileForm(false)} 
+          onComplete={handleProfileComplete}
+        />
+      )}
     </Layout>
   );
 };
