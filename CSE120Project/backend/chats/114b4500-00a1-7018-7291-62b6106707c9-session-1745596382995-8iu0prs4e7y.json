@@ -1,0 +1,12 @@
+[
+  {
+    "role": "user",
+    "content": "hello",
+    "timestamp": "2025-04-25T15:53:02.995Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Based on the search results available, I can discuss topics like BMI, physical activity levels, lifestyle factors like smoking and drinking, or general health metrics. Please feel free to ask a specific question and I'll do my best to answer using the research data available.",
+    "timestamp": "2025-04-25T15:53:10.030Z"
+  }
+]

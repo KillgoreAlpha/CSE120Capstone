@@ -1,0 +1,22 @@
+[
+  {
+    "role": "user",
+    "content": "hi",
+    "timestamp": "2025-04-22T18:04:36.968Z"
+  },
+  {
+    "role": "assistant",
+    "content": "Sorry, I am unable to assist you with this request.",
+    "timestamp": "2025-04-22T18:04:39.724Z"
+  },
+  {
+    "role": "user",
+    "content": "what are my biomarker readings",
+    "timestamp": "2025-04-22T18:04:59.165Z"
+  },
+  {
+    "role": "assistant",
+    "content": "From the provided search results, I can only partially analyze these biomarkers as most of the specific values you mentioned are not present in the search data. I can comment on CRP (C-reactive protein) and IL-6 (interleukin-6), which are known inflammatory biomarkers that have been studied in relation to cardiovascular disease (CVD). \nFor IL-6, the search results show that its normal calibration range is between 20-10,000 pg/mL. However, without the units for your IL-6 measurement of 4.09, I cannot determine if this is within the normal range. \nI cannot provide specific analysis for the other biomarkers you mentioned (cortisol, lactate, uric acid, body temperature, heart rate, and blood oxygen) as they are not discussed in the provided search results. To properly analyze these values, we would need reference ranges and additional clinical context.",
+    "timestamp": "2025-04-22T18:05:12.523Z"
+  }
+]
