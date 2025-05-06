@@ -12,7 +12,8 @@ import {
   Spin,
   message,
   List,
-  Empty
+  Empty,
+  Tabs
 } from 'antd';
 import {
   SendOutlined,
@@ -23,8 +24,11 @@ import {
   LoginOutlined,
   LoadingOutlined,
   HistoryOutlined,
-  MessageOutlined
+  MessageOutlined,
+  LineChartOutlined,
+  CommentOutlined
 } from '@ant-design/icons';
+import LiveDataDashboard from './components/graphs/LiveDataDashboard';
 
 const { Header, Sider, Content } = Layout;
 const { TextArea } = Input;
@@ -272,8 +276,10 @@ const App = () => {
       }}>
         <Spin
           indicator={<LoadingOutlined style={{ fontSize: 32 }} spin />}
-          tip="Loading your session..."
-        />
+          rootClassName="full-screen-spin"
+        >
+          <div>Loading your session...</div>
+        </Spin>
       </div>
     );
   }
@@ -314,7 +320,7 @@ const App = () => {
         centered
         width={400}
         style={{ borderRadius: '16px' }}
-        bodyStyle={{ padding: '24px' }}
+        styles={{ body: { padding: '24px' } }}
       >
         <Card variant='borderless'>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -468,141 +474,174 @@ const App = () => {
           overflow: 'hidden',
           ...blurStyle
         }}>
-          <div style={{
-            flex: 1,
-            overflow: 'auto',
-            padding: '20px',
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            {messages.length === 0 ? (
-              <div style={{ 
-                flex: 1, 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center' 
-              }}>
-                <Text type="secondary">
-                  How can I help you today?
-                </Text>
-              </div>
-            ) : (
-              <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
-                {messages.map((msg, index) => (
-                  <div 
-                    key={index} 
-                    style={{ 
-                      marginBottom: '16px',
+          <Tabs
+            defaultActiveKey="chat"
+            style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}
+            items={[
+              {
+                key: 'chat',
+                label: (
+                  <span>
+                    <CommentOutlined />
+                    Chat
+                  </span>
+                ),
+                children: (
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                    <div style={{
+                      flex: 1,
+                      overflow: 'auto',
+                      padding: '20px',
                       display: 'flex',
                       flexDirection: 'column',
-                      alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
-                    }}
-                  >
-                    <Card 
-                      style={{ 
-                        maxWidth: '80%',
-                        background: msg.role === 'user' ? '#e6f7ff' : '#f5f5f5',
-                        borderRadius: '8px',
-                      }}
-                      bodyStyle={{ padding: '12px 16px' }}
-                    >
-                      <div style={{ 
-                        display: 'flex',
-                        marginBottom: '4px'
-                      }}>
-                        <Avatar 
-                          size="small" 
-                          icon={msg.role === 'user' ? <UserOutlined /> : null}
-                          src={msg.role === 'assistant' ? "https://static.wixstatic.com/media/1a1b30_ffdd9eff1dba4c6896bdd859e4bc9839~mv2.png/v1/fill/w_120,h_90,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo.png" : null}
-                          style={{ marginRight: '8px' }}
-                        />
-                        <Text strong>{msg.role === 'user' ? 'You' : 'X10e'}</Text>
-                      </div>
-                      <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
-                        {msg.content}
-                      </Paragraph>
-                    </Card>
-                  </div>
-                ))}
-                {isLoading && (
-                  <div style={{ 
-                    marginBottom: '16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'flex-start'
-                  }}>
-                    <Card
-                      style={{
-                        maxWidth: '80%',
-                        background: '#f5f5f5',
-                        borderRadius: '8px',
-                      }}
-                      bodyStyle={{ padding: '12px 16px' }}
-                    >
-                      <div style={{ display: 'flex', marginBottom: '4px' }}>
-                        <Avatar 
-                          size="small" 
-                          src="https://static.wixstatic.com/media/1a1b30_ffdd9eff1dba4c6896bdd859e4bc9839~mv2.png/v1/fill/w_120,h_90,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo.png"
-                          style={{ marginRight: '8px' }}
-                        />
-                        <Text strong>X10e</Text>
-                      </div>
-                      <Spin indicator={<LoadingOutlined style={{ fontSize: 16 }} spin />} />
-                    </Card>
-                  </div>
-                )}
-                <div ref={messagesEndRef} />
-              </div>
-            )}
-          </div>
+                    }}>
+                      {messages.length === 0 ? (
+                        <div style={{ 
+                          flex: 1, 
+                          display: 'flex', 
+                          justifyContent: 'center', 
+                          alignItems: 'center' 
+                        }}>
+                          <Text type="secondary">
+                            How can I help you today?
+                          </Text>
+                        </div>
+                      ) : (
+                        <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%' }}>
+                          {messages.map((msg, index) => (
+                            <div 
+                              key={index} 
+                              style={{ 
+                                marginBottom: '16px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: msg.role === 'user' ? 'flex-end' : 'flex-start'
+                              }}
+                            >
+                              <Card 
+                                style={{ 
+                                  maxWidth: '80%',
+                                  background: msg.role === 'user' ? '#e6f7ff' : '#f5f5f5',
+                                  borderRadius: '8px',
+                                }}
+                                bodyStyle={{ padding: '12px 16px' }}
+                              >
+                                <div style={{ 
+                                  display: 'flex',
+                                  marginBottom: '4px'
+                                }}>
+                                  <Avatar 
+                                    size="small" 
+                                    icon={msg.role === 'user' ? <UserOutlined /> : null}
+                                    src={msg.role === 'assistant' ? "https://static.wixstatic.com/media/1a1b30_ffdd9eff1dba4c6896bdd859e4bc9839~mv2.png/v1/fill/w_120,h_90,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo.png" : null}
+                                    style={{ marginRight: '8px' }}
+                                  />
+                                  <Text strong>{msg.role === 'user' ? 'You' : 'X10e'}</Text>
+                                </div>
+                                <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                                  {msg.content}
+                                </Paragraph>
+                              </Card>
+                            </div>
+                          ))}
+                          {isLoading && (
+                            <div style={{ 
+                              marginBottom: '16px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'flex-start'
+                            }}>
+                              <Card
+                                style={{
+                                  maxWidth: '80%',
+                                  background: '#f5f5f5',
+                                  borderRadius: '8px',
+                                }}
+                                bodyStyle={{ padding: '12px 16px' }}
+                              >
+                                <div style={{ display: 'flex', marginBottom: '4px' }}>
+                                  <Avatar 
+                                    size="small" 
+                                    src="https://static.wixstatic.com/media/1a1b30_ffdd9eff1dba4c6896bdd859e4bc9839~mv2.png/v1/fill/w_120,h_90,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo.png"
+                                    style={{ marginRight: '8px' }}
+                                  />
+                                  <Text strong>X10e</Text>
+                                </div>
+                                <Spin indicator={<LoadingOutlined style={{ fontSize: 16 }} spin />}><div></div></Spin>
+                              </Card>
+                            </div>
+                          )}
+                          <div ref={messagesEndRef} />
+                        </div>
+                      )}
+                    </div>
 
-          <div style={{
-            padding: '16px',
-            borderTop: '1px solid #f0f0f0',
-            background: '#fff',
-            position: 'sticky',
-            bottom: 0
-          }}>
-            <div style={{
-              maxWidth: '800px',
-              margin: '0 auto',
-              position: 'relative'
-            }}>
-              <TextArea
-                value={inputValue}
-                onChange={e => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Type your message here..."
-                autoSize={{ minRows: 1, maxRows: 6 }}
-                style={{
-                  paddingRight: '40px',
-                  borderRadius: '8px'
-                }}
-                disabled={isLoading}
-              />
-              <Button
-                type="primary"
-                shape="circle"
-                icon={<SendOutlined />}
-                style={{
-                  position: 'absolute',
-                  right: '8px',
-                  bottom: '8px'
-                }}
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim() || isLoading}
-              />
-            </div>
-            <div style={{
-              textAlign: 'center',
-              marginTop: '8px'
-            }}>
-              <Text type="secondary" style={{ fontSize: '12px' }}>
-                X10e's LLM can make mistakes. If you are feeling unwell, please schedule an appointment with your healthcare provider.
-                If this is an emergency, please call 911.
-              </Text>
-            </div>
-          </div>
+                    <div style={{
+                      padding: '16px',
+                      borderTop: '1px solid #f0f0f0',
+                      background: '#fff',
+                      position: 'sticky',
+                      bottom: 0
+                    }}>
+                      <div style={{
+                        maxWidth: '800px',
+                        margin: '0 auto',
+                        position: 'relative'
+                      }}>
+                        <TextArea
+                          value={inputValue}
+                          onChange={e => setInputValue(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          placeholder="Type your message here..."
+                          autoSize={{ minRows: 1, maxRows: 6 }}
+                          style={{
+                            paddingRight: '40px',
+                            borderRadius: '8px'
+                          }}
+                          disabled={isLoading}
+                        />
+                        <Button
+                          type="primary"
+                          shape="circle"
+                          icon={<SendOutlined />}
+                          style={{
+                            position: 'absolute',
+                            right: '8px',
+                            bottom: '8px'
+                          }}
+                          onClick={handleSendMessage}
+                          disabled={!inputValue.trim() || isLoading}
+                        />
+                      </div>
+                      <div style={{
+                        textAlign: 'center',
+                        marginTop: '8px'
+                      }}>
+                        <Text type="secondary" style={{ fontSize: '12px' }}>
+                          X10e's LLM can make mistakes. If you are feeling unwell, please schedule an appointment with your healthcare provider.
+                          If this is an emergency, please call 911.
+                        </Text>
+                      </div>
+                    </div>
+                  </div>
+                ),
+              },
+              {
+                key: 'liveData',
+                label: (
+                  <span>
+                    <LineChartOutlined />
+                    Live Biomarker Data
+                  </span>
+                ),
+                children: (
+                  <div style={{ overflow: 'auto', height: '100%', padding: '0 20px' }}>
+                    <LiveDataDashboard refreshInterval={2000} showPoints={true} />
+                  </div>
+                ),
+              },
+            ]}
+          />
         </Content>
       </Layout>
     </Layout>
