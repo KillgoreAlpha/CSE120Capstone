@@ -27,13 +27,15 @@ import {
   MessageOutlined,
   DeleteOutlined,
   DashboardOutlined,
-  SettingOutlined
+  SettingOutlined,
+  FileTextOutlined
 } from '@ant-design/icons';
 
 // Import our components
 import HealthDashboard from './components/HealthDashboard';
 import ChatPanel from './components/ChatPanel';
 import UserHealthProfileForm from './components/UserHealthProfileForm';
+import ResearchPapers from './components/ResearchPapers';
 import { useUserHealthProfile } from './hooks/useUserHealthProfile';
 
 // Import responsive styles
@@ -66,6 +68,8 @@ const App = () => {
   const [chatExpanded, setChatExpanded] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [activeSection, setActiveSection] = useState<'dashboard' | 'research'>('dashboard');
   const auth = useAuth();
   
   // Set up responsive behavior
@@ -126,6 +130,63 @@ const App = () => {
       fetchChatSessions();
     }
   }, [auth.isAuthenticated, auth.user, fetchChatSessions]);
+  
+  // Check if user is admin based on Cognito groups
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (!auth.isAuthenticated || !auth.user) {
+        setIsAdmin(false);
+        return;
+      }
+      
+      // First, check if we can determine admin status from Cognito groups
+      try {
+        // Log user profile for debugging (remove in production)
+        console.log('Auth user profile:', auth.user.profile);
+        
+        // Check for 'cognito:groups' claim which contains user's groups
+        const userGroups = auth.user.profile?.['cognito:groups'] || [];
+        
+        if (Array.isArray(userGroups)) {
+          // Check if user is in the administrators group
+          if (userGroups.includes('administrators')) {
+            setIsAdmin(true);
+            return;
+          }
+        } else if (typeof userGroups === 'string') {
+          // Sometimes groups might be delivered as a comma-separated string
+          const groupsArray = userGroups.split(',');
+          if (groupsArray.includes('administrators')) {
+            setIsAdmin(true);
+            return;
+          }
+        }
+        
+        // Fallback to server-side check if group information isn't available in token
+        const userId = getUserId(auth.user);
+        const isDev = process.env.NODE_ENV === 'development';
+        const response = await fetch(`${API_BASE_URL}/research/check-admin/${userId}${isDev ? '?testAdmin=true' : ''}`);
+        
+        if (!response.ok) {
+          if (response.status === 403) {
+            setIsAdmin(false);
+            return;
+          }
+          throw new Error('Failed to check admin status');
+        }
+        
+        const data = await response.json();
+        setIsAdmin(data.isAdmin);
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+        // For development, you can uncomment the line below for testing
+        // setIsAdmin(true);
+        setIsAdmin(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, [auth.isAuthenticated, auth.user]);
 
   const fetchChatHistory = async (sessionId: string) => {
     if (!auth.user) return;
@@ -392,6 +453,7 @@ const App = () => {
               onClick: () => {
                 setMobileMenuOpen(false);
                 setChatExpanded(false);
+                setActiveSection('dashboard');
               }
             },
             {
@@ -417,6 +479,18 @@ const App = () => {
                 setMobileMenuOpen(false);
               }
             },
+            ...(isAdmin ? [
+              {
+                key: 'research',
+                icon: <FileTextOutlined />,
+                label: 'Manage LLM Data',
+                onClick: () => {
+                  setMobileMenuOpen(false);
+                  setChatExpanded(false);
+                  setActiveSection('research');
+                }
+              }
+            ] : []),
             {
               key: 'settings',
               icon: <SettingOutlined />,
@@ -557,6 +631,38 @@ const App = () => {
               </Button>
               
               {!collapsed && (
+                <div style={{ margin: '16px 0 8px 0' }}>
+                  <Button
+                    type={activeSection === 'dashboard' ? 'default' : 'text'}
+                    block
+                    icon={<DashboardOutlined />}
+                    onClick={() => {
+                      setActiveSection('dashboard');
+                      setChatExpanded(false);
+                    }}
+                    style={{ textAlign: 'left', marginBottom: '8px' }}
+                  >
+                    Dashboard
+                  </Button>
+                  
+                  {isAdmin && (
+                    <Button
+                      type={activeSection === 'research' ? 'default' : 'text'}
+                      block
+                      icon={<FileTextOutlined />}
+                      onClick={() => {
+                        setActiveSection('research');
+                        setChatExpanded(false);
+                      }}
+                      style={{ textAlign: 'left', marginBottom: '8px' }}
+                    >
+                      Manage LLM Data
+                    </Button>
+                  )}
+                </div>
+              )}
+              
+              {!collapsed && (
                 <div style={{ margin: '16px 8px 8px 8px' }}>
                   <Space align="center">
                     <HistoryOutlined />
@@ -642,11 +748,21 @@ const App = () => {
           overflow: 'hidden',
           ...blurStyle
         }}>
-          {/* Health Dashboard Section - Removing the header to let the HealthDashboard handle the welcome */}
-          <HealthDashboard 
-            userId={auth.user ? getUserId(auth.user) : null}
-            isVisible={!chatExpanded}
-          />
+          {/* Conditional rendering based on activeSection */}
+          {activeSection === 'dashboard' && (
+            <HealthDashboard 
+              userId={auth.user ? getUserId(auth.user) : null}
+              isVisible={!chatExpanded}
+            />
+          )}
+          
+          {/* Research Papers Section - Only visible to admins */}
+          {activeSection === 'research' && isAdmin && (
+            <ResearchPapers 
+              userId={auth.user ? getUserId(auth.user) : null}
+              isVisible={!chatExpanded}
+            />
+          )}
           
           {/* Chat Panel Section */}
           <ChatPanel

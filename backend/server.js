@@ -16,6 +16,9 @@ import { TranscribeClient, StartTranscriptionJobCommand, GetTranscriptionJobComm
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { fileURLToPath } from 'url';
 
+// Import routes
+import researchRoutes from './routes/research.js';
+
 const app = express();
 app.use(express.json());
 app.use(cors({
@@ -28,6 +31,9 @@ app.use(cors({
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CHATS_DIR = path.join(__dirname, 'chats');
+
+// Register routes
+app.use('/research', researchRoutes);
 
 // Create chats directory if it doesn't exist
 if (!fs.existsSync(CHATS_DIR)) {

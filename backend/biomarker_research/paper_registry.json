@@ -1,0 +1,38 @@
+{
+  "18f7c5cdd5e1280effb944656a77059b": {
+    "title": "Conversion Therapy Exposure and Elevated Cardiovascular Disease Risk.",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/40327341/",
+    "date_retrieved": "2025-05-06",
+    "source": "pubmed"
+  },
+  "65abeba84e2eb9d1c803caeb1f332949": {
+    "title": "Predictive factors for delayed high-dose methotrexate elimination: A practical issue for diffuse large B-cell lymphoma patients.",
+    "url": "https://pubmed.ncbi.nlm.nih.gov/40326045/",
+    "date_retrieved": "2025-05-06",
+    "source": "pubmed"
+  },
+  "3350f2563e3111d08a905d04e89b8b98": {
+    "title": "Automated Detection of Persistent Inflammatory Biomarkers in\n  Post-COVID-19 Patients Using Machine Learning Techniques",
+    "url": "http://arxiv.org/abs/2309.15838v1",
+    "date_retrieved": "2025-05-06",
+    "source": "arxiv"
+  },
+  "d91ff40bf57689671350b08f60243829": {
+    "title": "Estimating Discontinuous Time-Varying Risk Factors and Treatment\n  Benefits for COVID-19 with Interpretable ML",
+    "url": "http://arxiv.org/abs/2211.08991v1",
+    "date_retrieved": "2025-05-06",
+    "source": "arxiv"
+  },
+  "ae37abab54f10d00a1cd782f1e44ee08": {
+    "title": "Association between nutritional factors, inflammatory biomarkers and\n  cancer types: an analysis of NHANES data using machine learning",
+    "url": "http://arxiv.org/abs/2504.13978v1",
+    "date_retrieved": "2025-05-06",
+    "source": "arxiv"
+  },
+  "54d57c4bda5498475d7deca49c5740f8": {
+    "title": "Multimodal AI-driven Biomarker for Early Detection of Cancer Cachexia",
+    "url": "http://arxiv.org/abs/2503.06797v1",
+    "date_retrieved": "2025-05-06",
+    "source": "arxiv"
+  }
+}
