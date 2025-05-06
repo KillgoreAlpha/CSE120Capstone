@@ -57,6 +57,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
   const dataBuffer = useRef<DataPoint[]>([]);
   const lastUpdateTime = useRef<number>(Date.now());
   const bufferIntervalRef = useRef<number | null>(null);
+  const allDataPoints = useRef<DataPoint[]>([]); // Keep a reference to all received data points
   
   // Extract primary biomarker field from API naming
   // Now we're using the direct field names from the server
@@ -72,29 +73,33 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
     if (dataBuffer.current.length === 0) return;
     if (!isMounted.current) return;
     
-    setDataPoints(prevPoints => {
-      // Add all new points from buffer
-      const combinedPoints = [...prevPoints, ...dataBuffer.current];
-      
-      // Remove duplicates by timestamp
-      const uniquePoints = combinedPoints.filter((point, index, self) =>
-        index === self.findIndex(p => p.timestamp === point.timestamp)
-      );
-      
-      // Sort by timestamp
-      const sortedPoints = uniquePoints.sort((a, b) => 
-        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-      );
-      
-      // Limit to maxDataPoints (prevent over-accumulation)
-      const limitedPoints = sortedPoints.slice(-maxDataPoints);
-      
-      // Clear buffer after processing
-      dataBuffer.current = [];
-      lastUpdateTime.current = Date.now();
-      
-      return limitedPoints;
-    });
+    // First, add new data points to our complete history reference
+    allDataPoints.current = [...allDataPoints.current, ...dataBuffer.current];
+    
+    // Remove duplicates from our complete history
+    allDataPoints.current = allDataPoints.current.filter((point, index, self) =>
+      index === self.findIndex(p => p.timestamp === point.timestamp)
+    );
+    
+    // Sort the complete history by timestamp
+    allDataPoints.current.sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    
+    // Get current time window bounds - last 60 seconds
+    const now = Date.now();
+    const windowStart = now - 60000; // 60 seconds ago
+    
+    // Filter points within the current time window for display
+    const visiblePoints = allDataPoints.current.filter(point => 
+      new Date(point.timestamp).getTime() > windowStart
+    );
+    
+    setDataPoints(visiblePoints);
+    
+    // Clear buffer after processing
+    dataBuffer.current = [];
+    lastUpdateTime.current = Date.now();
   });
   
   const fetchLatestData = async () => {
@@ -124,23 +129,29 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         
         // Update state by merging existing and new points
         if (newPoints.length > 0 && isMounted.current) {
-          setDataPoints(prevPoints => {
-            // Combine existing and new points
-            const combinedPoints = [...prevPoints, ...newPoints];
-            
-            // Remove duplicates based on timestamp
-            const uniquePoints = combinedPoints.filter((point, index, self) =>
-              index === self.findIndex(p => p.timestamp === point.timestamp)
-            );
-            
-            // Sort by timestamp
-            const sortedPoints = uniquePoints.sort((a, b) => 
-              new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-            );
-            
-            // Limit the number of data points to prevent performance issues
-            return sortedPoints.slice(-maxDataPoints);
-          });
+          // Add new points to our history
+          allDataPoints.current = [...allDataPoints.current, ...newPoints];
+          
+          // Remove duplicates from our complete history
+          allDataPoints.current = allDataPoints.current.filter((point, index, self) =>
+            index === self.findIndex(p => p.timestamp === point.timestamp)
+          );
+          
+          // Sort the complete history by timestamp
+          allDataPoints.current.sort((a, b) => 
+            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+          );
+          
+          // Get current time window bounds - last 60 seconds
+          const now = Date.now();
+          const windowStart = now - 60000; // 60 seconds ago
+          
+          // Filter points within the current time window for display
+          const visiblePoints = allDataPoints.current.filter(point => 
+            new Date(point.timestamp).getTime() > windowStart
+          );
+          
+          setDataPoints(visiblePoints);
         } else {
           console.log(`No new data points for ${biomarker}`);
         }
@@ -320,6 +331,26 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
       intervalRef.current = window.setInterval(fetchLatestData, refreshInterval);
     }
     
+    // Set up an interval to refresh the visible time window every second
+    // This ensures data points "move" through the visible window correctly
+    const timeWindowRefreshInterval = window.setInterval(() => {
+      if (isMounted.current && allDataPoints.current.length > 0) {
+        // Get current time window bounds - last 60 seconds
+        const now = Date.now();
+        const windowStart = now - 60000; // 60 seconds ago
+        
+        // Filter points within the current time window for display
+        const visiblePoints = allDataPoints.current.filter(point => 
+          new Date(point.timestamp).getTime() > windowStart
+        );
+        
+        setDataPoints(visiblePoints);
+      }
+    }, 1000); // Update every second
+    
+    // Save reference for cleanup
+    updateTimeWindow.current = timeWindowRefreshInterval;
+    
     // Cleanup on unmount - combine all cleanup in one place
     return () => {
       // Mark component as unmounted
@@ -354,7 +385,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
     };
   }, [biomarker, refreshInterval]);
 
-  // Prepare chart data
+  // Prepare chart data - make sure to not modify the original data points
   const chartData = {
     datasets: [
       {
@@ -403,6 +434,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
           text: 'Time'
         },
         // Set static time window range instead of dynamic calculation on every render
+        // Using fixed time window to prevent chart.js from auto-scaling and potentially dropping points
         min: function() {
           return new Date(Date.now() - 60000); // Display last 60 seconds
         },
@@ -524,7 +556,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         padding: '4px',
         borderTop: '1px solid #f0f0f0' 
       }}>
-        Monitoring since {streamStartTime.current.toLocaleTimeString()} • {dataPoints.length} data points
+        Monitoring since {streamStartTime.current.toLocaleTimeString()} • {dataPoints.length} visible data points • {allDataPoints.current.length} total data points
       </div>
     </div>
   );
