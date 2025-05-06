@@ -69,6 +69,22 @@
     margin-bottom: 16px;
   }
   
+  /* Enhanced welcome view styles */
+  .health-dashboard-container div[style*="flexDirection: column"][style*="justifyContent: center"] {
+    padding: 10px !important;
+  }
+  
+  .welcome-cards .ant-card {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-radius: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  
+  .welcome-cards .ant-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+  
   /* Chat Panel */
   .chat-panel {
     height: 70% !important;

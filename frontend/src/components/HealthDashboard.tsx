@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, JSX } from 'react';
 import { PrinterOutlined } from '@ant-design/icons';
-import Datapdf from './Datapdf';
 import { 
   Typography, Row, Col, Card, Skeleton, Tabs, Divider, 
-  Button, Statistic, Badge, Space, Tooltip as AntTooltip, Modal, Spin
+  Button, Statistic, Badge, Space, Modal, Spin
 } from 'antd';
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, 
@@ -16,7 +15,6 @@ import {
   MinusOutlined,
   BarChartOutlined,
   EyeOutlined,
-  InfoCircleOutlined,
   HeartOutlined,
   ExperimentOutlined,
   LineChartOutlined
@@ -223,7 +221,6 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   const [showGraphs, setShowGraphs] = useState(false);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'welcome' | 'vitals' | 'biomarkers' | 'charts'>('welcome');
-  const datapdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fetch health data from the API
@@ -581,28 +578,51 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
 
   // Render welcome view with action buttons
   const renderWelcomeView = () => {
-    const firstName = profileData?.givenName || 'there';
     
     return (
-      <div style={{ padding: '20px 0', textAlign: 'center' }}>
-        <div style={{ marginBottom: '30px' }}>
-          <Title level={1}>Welcome back!</Title>
-          <Text style={{ fontSize: '16px', color: '#666', display: 'block', marginTop: '16px' }}>
+      <div style={{ 
+        padding: '20px 0', 
+        textAlign: 'center',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100%'
+      }}>
+        <div style={{ marginBottom: '40px' }}>
+          <Title level={1} style={{ fontSize: '2.5rem' }}>Hi</Title>
+          <Text style={{ fontSize: '18px', color: '#666', display: 'block', marginTop: '16px' }}>
             What would you like to dive into today?
           </Text>
         </div>
         
-        <Row justify="center" gutter={[16, 16]} className="welcome-cards" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+        <Row justify="center" gutter={[24, 24]} className="welcome-cards" style={{ maxWidth: '900px', margin: '0 auto' }}>
           <Col xs={24} sm={12} lg={8}>
             <Card 
               hoverable 
-              style={{ textAlign: 'center', height: '200px' }}
+              style={{ 
+                textAlign: 'center', 
+                height: '220px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
               onClick={() => setActiveView('vitals')}
+              bodyStyle={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                height: '100%',
+                padding: '24px'
+              }}
             >
-              <div style={{ fontSize: '40px', color: '#1890ff', marginBottom: '16px' }}>
+              <div style={{ fontSize: '48px', color: '#1890ff', marginBottom: '20px' }}>
                 <HeartOutlined />
               </div>
-              <Title level={4}>View Vitals</Title>
+              <Title level={4} style={{ margin: 0, marginBottom: '8px' }}>View Vitals</Title>
               <Text type="secondary">Check your heart rate, temperature, and oxygen levels</Text>
             </Card>
           </Col>
@@ -610,13 +630,29 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
           <Col xs={24} sm={12} lg={8}>
             <Card 
               hoverable 
-              style={{ textAlign: 'center', height: '200px' }}
+              style={{ 
+                textAlign: 'center', 
+                height: '220px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
               onClick={() => setActiveView('biomarkers')}
+              bodyStyle={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                height: '100%',
+                padding: '24px'
+              }}
             >
-              <div style={{ fontSize: '40px', color: '#52c41a', marginBottom: '16px' }}>
+              <div style={{ fontSize: '48px', color: '#52c41a', marginBottom: '20px' }}>
                 <ExperimentOutlined />
               </div>
-              <Title level={4}>View Biomarkers</Title>
+              <Title level={4} style={{ margin: 0, marginBottom: '8px' }}>View Biomarkers</Title>
               <Text type="secondary">Review your key biomarker indicators</Text>
             </Card>
           </Col>
@@ -624,14 +660,30 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
           <Col xs={24} sm={12} lg={8}>
             <Card 
               hoverable 
-              style={{ textAlign: 'center', height: '200px' }}
+              style={{ 
+                textAlign: 'center', 
+                height: '220px',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                cursor: 'pointer'
+              }}
               onClick={() => setActiveView('charts')}
+              bodyStyle={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                justifyContent: 'center', 
+                alignItems: 'center',
+                height: '100%',
+                padding: '24px'
+              }}
             >
-              <div style={{ fontSize: '40px', color: '#722ed1', marginBottom: '16px' }}>
+              <div style={{ fontSize: '48px', color: '#722ed1', marginBottom: '20px' }}>
                 <LineChartOutlined />
               </div>
-              <Title level={4}>View Charts</Title>
-              <Text type="secondary">Analyze your health data in detail</Text>
+              <Title level={4} style={{ margin: 0, marginBottom: '8px' }}>View Charts</Title>
+              <Text type="secondary">Deep dive into your health data</Text>
             </Card>
           </Col>
         </Row>
@@ -1002,20 +1054,6 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   };
 
   // Render the appropriate view based on activeView state
-  const renderContent = () => {
-    switch (activeView) {
-      case 'welcome':
-        return renderWelcomeView();
-      case 'vitals':
-        return renderVitalsView();
-      case 'biomarkers':
-        return renderBiomarkersView();
-      case 'charts':
-        return renderGraphsView();
-      default:
-        return renderWelcomeView();
-    }
-  };
 
   return (
     <div 
@@ -1027,10 +1065,16 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
         overflowY: 'auto',
         transition: 'opacity 0.3s ease-in-out',
         opacity: isVisible ? 1 : 0,
-        WebkitOverflowScrolling: 'touch' // Enable smooth scrolling on iOS
+        WebkitOverflowScrolling: 'touch', // Enable smooth scrolling on iOS
+        display: 'flex',
+        flexDirection: 'column'
       }}
     >
-      {showGraphs ? renderGraphsView() : renderSummaryView()}
+      {activeView === 'welcome' ? renderWelcomeView() : 
+       (showGraphs ? renderGraphsView() : 
+        activeView === 'vitals' ? renderVitalsView() : 
+        activeView === 'biomarkers' ? renderBiomarkersView() : 
+        activeView === 'charts' ? renderGraphsView() : renderSummaryView())}
     </div>
   );
 };

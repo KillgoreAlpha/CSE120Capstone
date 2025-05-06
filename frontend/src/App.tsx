@@ -642,14 +642,7 @@ const App = () => {
           overflow: 'hidden',
           ...blurStyle
         }}>
-          {/* Welcome and Health Status Section */}
-          <div style={{ padding: '20px 20px 10px 20px' }}>
-            <Title level={4} style={{ margin: 0 }}>
-              Hello, {getUserDisplayName(auth.user?.profile)}! 
-            </Title>
-          </div>
-          
-          {/* Health Dashboard Section */}
+          {/* Health Dashboard Section - Removing the header to let the HealthDashboard handle the welcome */}
           <HealthDashboard 
             userId={auth.user ? getUserId(auth.user) : null}
             isVisible={!chatExpanded}
