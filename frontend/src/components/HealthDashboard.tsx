@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { PrinterOutlined } from '@ant-design/icons';
+import Datapdf from './Datapdf';
 import { 
   Typography, Row, Col, Card, Skeleton, Tabs, Divider, 
   Button, Statistic, Badge, Space, Tooltip as AntTooltip, Modal, Spin
@@ -221,6 +223,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   const [showGraphs, setShowGraphs] = useState(false);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'welcome' | 'vitals' | 'biomarkers' | 'charts'>('welcome');
+  const datapdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fetch health data from the API
@@ -379,6 +382,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
 
   // Don't render if not visible
   if (!isVisible) return null;
+
 
   // Render the detailed biomarker card
   const renderDetailedBiomarkerCard = () => {
@@ -656,6 +660,26 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                   <Text style={{ fontSize: '16px', color: '#333' }}>
                     {createLinkedSummaryText(analysisText)}
                   </Text>
+                  <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                    <Button
+                      type="default"
+                      icon={<PrinterOutlined />}
+                      onClick={() => {
+                        const event = new CustomEvent('exportPDF');
+                        window.dispatchEvent(event);
+                      }}
+                      style={{ marginRight: '10px' }}
+                    >
+                      Export to PDF
+                    </Button>
+                    <Button 
+                      type="primary"
+                      icon={<BarChartOutlined />}
+                      onClick={() => setShowGraphs(true)}
+                    >
+                      View Detailed Graphs
+                    </Button>
+                  </div>
                 </div>
               )}
             </Card>
@@ -999,15 +1023,14 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
       style={{
         padding: '20px',
         paddingBottom: '170px', // Ensure bottom graph isn't covered by chat panel
-        height: '100%', 
+        height: '100%',
         overflowY: 'auto',
         transition: 'opacity 0.3s ease-in-out',
         opacity: isVisible ? 1 : 0,
         WebkitOverflowScrolling: 'touch' // Enable smooth scrolling on iOS
       }}
     >
-      {renderContent()}
-      {renderDetailedBiomarkerCard()}
+      {showGraphs ? renderGraphsView() : renderSummaryView()}
     </div>
   );
 };
