@@ -114,6 +114,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     
     // Debug log to see what profile data we're sending
     console.log("Sending user health profile:", userHealthProfile);
+    if (!userHealthProfile) {
+      console.warn("No user health profile data available to send to the LLM");
+    }
     
     try {
       // Get user ID for chat history tracking

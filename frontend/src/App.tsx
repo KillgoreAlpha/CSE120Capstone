@@ -68,7 +68,8 @@ const App = () => {
   const {
     profileData,
     showProfileForm,
-    setShowProfileForm
+    setShowProfileForm,
+    saveProfile
   } = useUserHealthProfile(auth.isAuthenticated && auth.user ? getUserId(auth.user) : null);
 
   const fetchChatSessions = useCallback(async () => {
@@ -236,28 +237,17 @@ const App = () => {
   const handleProfileComplete = async (profileData: any) => {
     if (auth.isAuthenticated && auth.user) {
       try {
-        // Get the userId
-        const userId = getUserId(auth.user);
-        
-        // Save to server
-        const response = await fetch(`http://localhost:3000/user-health-profile/${userId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(profileData)
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to save health profile');
-        }
+        // Use the saveProfile function from the hook instead of making a direct API call
+        // This will update both the server and the local state
+        await saveProfile(profileData);
         
         console.log('Successfully saved profile to server');
         
-        // Update the state
-        setShowProfileForm(false);
+        // The hook will automatically update state and hide the form after successful save
+        // No need to call setShowProfileForm(false) here
       } catch (error) {
         console.error('Error saving profile:', error);
+        message.error('Failed to save health profile');
       }
     }
   };
@@ -369,13 +359,22 @@ const App = () => {
         </div>
         <Space>
           {auth.isAuthenticated && (
-            <Button
-              type="text"
-              icon={<LoginOutlined />}
-              onClick={() => signOutRedirect()}
-            >
-              Logout
-            </Button>
+            <Space>
+              <Button
+                type="text"
+                icon={<UserOutlined />}
+                onClick={() => setShowProfileForm(true)}
+              >
+                Profile
+              </Button>
+              <Button
+                type="text"
+                icon={<LoginOutlined />}
+                onClick={() => signOutRedirect()}
+              >
+                Logout
+              </Button>
+            </Space>
           )}
           <Avatar icon={<UserOutlined />} />
           {auth.isAuthenticated && (
@@ -533,7 +532,7 @@ const App = () => {
         <UserHealthProfileForm
           userId={auth.user ? getUserId(auth.user) : null}
           visible={showProfileForm}
-          onClose={() => {}} // Empty function as we don't want to allow closing if no profile
+          onClose={() => setShowProfileForm(false)} 
           onComplete={handleProfileComplete}
         />
       )}
