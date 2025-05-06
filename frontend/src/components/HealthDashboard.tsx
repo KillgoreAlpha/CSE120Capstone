@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { PrinterOutlined } from '@ant-design/icons';
+import Datapdf from './Datapdf';
 import { 
   Typography, Row, Col, Card, Skeleton, Tabs, Divider, 
   Button, Statistic, Badge, Space, Tooltip as AntTooltip
@@ -179,6 +181,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   const [loading, setLoading] = useState(true);
   const [analysisText, setAnalysisText] = useState<string>("");
   const [showGraphs, setShowGraphs] = useState(false);
+  const datapdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fetch health data from the API
@@ -335,6 +338,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   // Don't render if not visible
   if (!isVisible) return null;
 
+
   // Render the welcome summary view
   const renderSummaryView = () => {
     return (
@@ -350,6 +354,17 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                     {analysisText}
                   </Text>
                   <div style={{ marginTop: '16px', textAlign: 'right' }}>
+                    <Button
+                      type="default"
+                      icon={<PrinterOutlined />}
+                      onClick={() => {
+                        const event = new CustomEvent('exportPDF');
+                        window.dispatchEvent(event);
+                      }}
+                      style={{ marginRight: '10px' }}
+                    >
+                      Export to PDF
+                    </Button>
                     <Button 
                       type="primary"
                       icon={<BarChartOutlined />}
@@ -465,9 +480,22 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
       <div>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Title level={4}>Health Analytics</Title>
-          <Button onClick={() => setShowGraphs(false)}>
-            Back to Summary
-          </Button>
+          <div>
+            <Button onClick={() => setShowGraphs(false)}>
+              Back to Summary
+            </Button>
+            <Button
+              type="default"
+              icon={<PrinterOutlined />}
+              onClick={() => {
+                const event = new CustomEvent('exportPDF');
+                window.dispatchEvent(event);
+              }}
+              style={{ marginLeft: '10px' }}
+            >
+              Export to PDF
+            </Button>
+          </div>
         </div>
 
         <Tabs defaultActiveKey="1">
@@ -639,18 +667,37 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
     );
   };
 
+  // Disable the export button if neither view is visible (shouldn't happen, but for safety)
+  // (The button logic is handled in the render functions above)
+
   return (
-    <div 
+    <div
       style={{
         padding: '20px',
         paddingBottom: '170px', // Ensure bottom graph isn't covered by chat panel
-        height: '100%', 
+        height: '100%',
         overflowY: 'auto',
         transition: 'opacity 0.3s ease-in-out',
         opacity: isVisible ? 1 : 0
       }}
     >
       {showGraphs ? renderGraphsView() : renderSummaryView()}
+      <div
+        ref={datapdfRef}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '1122px',
+          padding: '20px',
+          background: 'white',
+          zIndex: -1,
+          opacity: 0,
+          pointerEvents: 'none'
+        }}
+      >
+        <Datapdf healthData={healthData} loading={loading} userName={userId || "Unknown User"} />
+      </div>
     </div>
   );
 };
