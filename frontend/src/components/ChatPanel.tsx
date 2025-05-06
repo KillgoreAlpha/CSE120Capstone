@@ -175,10 +175,28 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   };
 
+  // Check if it's a mobile device
+  const [isMobile, setIsMobile] = useState(false);
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Initial check
+    checkMobile();
+    
+    // Add resize listener
+    window.addEventListener('resize', checkMobile);
+    
+    // Cleanup
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
     <div 
       ref={panelRef}
-      className="chat-panel"
+      className={`chat-panel ${expanded ? 'expanded' : ''}`}
       style={{
         position: 'absolute',
         bottom: 0,
@@ -191,40 +209,60 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.1)',
         display: 'flex',
         flexDirection: 'column',
-        transition: 'height 0.3s ease-in-out',
+        transition: 'all 0.3s ease-in-out',
         zIndex: 1000
       }}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
     >
-      {/* Swipe indicator */}
-      <div 
-        style={{
-          width: '50px',
-          height: '5px',
-          background: '#e0e0e0',
-          borderRadius: '10px',
-          margin: '10px auto',
-          cursor: 'pointer'
-        }}
-        onClick={onToggleExpand}
-      />
+      {/* Mobile Chat Tab */}
+      {isMobile && (
+        <div 
+          className="chat-panel-tab"
+          onClick={onToggleExpand}
+        >
+          <Text strong style={{ fontSize: '16px' }}>Chat with X10e</Text>
+        </div>
+      )}
+      
+      {/* Swipe indicator - only show when expanded on mobile */}
+      {(!isMobile || expanded) && (
+        <div 
+          className="chat-panel-handle"
+          style={{
+            width: '50px',
+            height: '5px',
+            background: '#e0e0e0',
+            borderRadius: '10px',
+            margin: '10px auto',
+            cursor: 'pointer'
+          }}
+          onClick={onToggleExpand}
+        />
+      )}
       
       {/* Messages area */}
       <div style={{
         flex: 1,
         overflow: 'auto',
-        padding: '0 20px 20px'
+        padding: '0 20px 20px',
+        WebkitOverflowScrolling: 'touch' // Smooth scrolling on iOS
       }}>
         {messages.length === 0 ? (
           <div style={{ 
             height: '100%', 
             display: 'flex', 
             justifyContent: 'center', 
-            alignItems: 'center' 
+            alignItems: 'center',
+            flexDirection: 'column',
+            padding: '0 16px',
+            textAlign: 'center'
           }}>
-            <Text type="secondary">
+            <Text type="secondary" style={{ fontSize: '16px', marginBottom: '8px' }}>
               How can I help you today?
+            </Text>
+            <Text type="secondary" style={{ fontSize: '14px' }}>
+              Ask me about your health metrics or general health questions.
             </Text>
           </div>
         ) : (
@@ -232,6 +270,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             {messages.map((msg, index) => (
               <div 
                 key={index} 
+                className="chat-message"
                 style={{ 
                   marginBottom: '16px',
                   display: 'flex',
@@ -243,13 +282,15 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                   style={{ 
                     maxWidth: '80%',
                     background: msg.role === 'user' ? '#e6f7ff' : '#f5f5f5',
-                    borderRadius: '8px',
+                    borderRadius: '12px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
                   }}
                   bodyStyle={{ padding: '12px 16px' }}
                 >
                   <div style={{ 
                     display: 'flex',
-                    marginBottom: '4px'
+                    marginBottom: '4px',
+                    alignItems: 'center'
                   }}>
                     <Avatar 
                       size="small" 
@@ -259,7 +300,12 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                     />
                     <Text strong>{msg.role === 'user' ? 'You' : 'X10e'}</Text>
                   </div>
-                  <Paragraph style={{ whiteSpace: 'pre-wrap', margin: 0 }}>
+                  <Paragraph style={{ 
+                    whiteSpace: 'pre-wrap', 
+                    margin: 0,
+                    fontSize: '15px',
+                    lineHeight: '1.5'
+                  }}>
                     {msg.content}
                   </Paragraph>
                 </Card>
@@ -276,11 +322,16 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
                   style={{
                     maxWidth: '80%',
                     background: '#f5f5f5',
-                    borderRadius: '8px',
+                    borderRadius: '12px',
+                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
                   }}
                   bodyStyle={{ padding: '12px 16px' }}
                 >
-                  <div style={{ display: 'flex', marginBottom: '4px' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    marginBottom: '4px',
+                    alignItems: 'center'
+                  }}>
                     <Avatar 
                       size="small" 
                       src="https://static.wixstatic.com/media/1a1b30_ffdd9eff1dba4c6896bdd859e4bc9839~mv2.png/v1/fill/w_120,h_90,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/logo.png"
@@ -298,15 +349,20 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       </div>
       
       {/* Input area */}
-      <div style={{
-        padding: '16px',
-        borderTop: '1px solid #f0f0f0',
-        background: '#fff'
-      }}>
+      <div 
+        className="chat-input-container"
+        style={{
+          padding: '16px',
+          borderTop: '1px solid #f0f0f0',
+          background: '#fff'
+        }}
+      >
         <div style={{
           maxWidth: '800px',
           margin: '0 auto',
-          position: 'relative'
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center'
         }}>
           <TextArea
             value={inputValue}
@@ -315,29 +371,53 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
             placeholder="Type your message here..."
             autoSize={{ minRows: 1, maxRows: 3 }}
             style={{
-              paddingRight: '40px',
-              borderRadius: '8px'
+              paddingRight: '70px', // Reduced padding for smaller buttons
+              borderRadius: '18px',
+              fontSize: '14px', // Slightly smaller font
+              resize: 'none',
+              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+              minHeight: '38px', // Fixed height
+              width: '100%',
+              lineHeight: '1.4'
             }}
             disabled={isLoading}
           />
           <Button
             shape="circle"
-            icon={<SendOutlined />}
+            size="small" // Changed from middle to small
+            icon={<SendOutlined style={{ fontSize: '14px' }} />} // Smaller icon
             type="primary"
-            style={{ position: 'absolute', right: '48px', bottom: '8px' }}
+            style={{ 
+              position: 'absolute', 
+              right: '32px', // Moved closer to the right to give more space
+              top: '50%', // Center vertically
+              transform: 'translateY(-50%)', // Precise centering
+              width: '28px', // Smaller button size
+              height: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
             onClick={handleSendMessage}
             disabled={!inputValue.trim() || isLoading}
           />
           <Button
             shape="circle"
-            icon={<AudioOutlined />}
+            size="small" // Changed from middle to small
+            icon={<AudioOutlined style={{ fontSize: '14px' }} />} // Smaller icon
             style={{
               position: 'absolute',
-              right: '8px',
-              bottom: '8px',
+              right: '0px',
+              top: '50%', // Center vertically
+              transform: 'translateY(-50%)', // Precise centering
               backgroundColor: isDictating ? '#1890ff' : undefined,
               color: isDictating ? '#fff' : undefined,
               borderColor: isDictating ? '#1890ff' : undefined,
+              width: '28px', // Smaller button size
+              height: '28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
             onClick={isDictating ? stop : start}
             disabled={isLoading}

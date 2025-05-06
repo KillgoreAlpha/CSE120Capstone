@@ -1,0 +1,238 @@
+/* Responsive Styles */
+
+/* Base Mobile Styles */
+@media screen and (max-width: 767px) {
+  /* Typography adjustments */
+  h1.ant-typography {
+    font-size: 1.8rem !important;
+  }
+  
+  h2.ant-typography {
+    font-size: 1.5rem !important;
+  }
+  
+  h3.ant-typography {
+    font-size: 1.3rem !important;
+  }
+  
+  h4.ant-typography {
+    font-size: 1.1rem !important;
+  }
+  
+  /* General UI components */
+  .ant-modal {
+    max-width: 95vw !important;
+    margin: 0 auto;
+  }
+  
+  .ant-card {
+    width: 100% !important;
+  }
+  
+  /* Layout adjustments */
+  .ant-layout-header {
+    padding: 0 12px !important;
+  }
+  
+  .user-info-text {
+    display: none !important; 
+  }
+  
+  /* Mobile menu drawer */
+  .mobile-menu-drawer .ant-drawer-body {
+    padding: 12px;
+  }
+  
+  .mobile-menu-drawer .ant-menu-item {
+    height: 48px;
+    line-height: 48px;
+  }
+  
+  /* Charts and graphs */
+  .recharts-wrapper {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 200px;
+  }
+  
+  /* Health Dashboard */
+  .health-card {
+    margin-bottom: 12px !important;
+  }
+  
+  .health-dashboard-container {
+    padding: 12px !important;
+  }
+  
+  /* Welcome grid display */
+  .welcome-cards .ant-col {
+    margin-bottom: 16px;
+  }
+  
+  /* Chat Panel */
+  .chat-panel {
+    height: 70% !important;
+    transform: translateY(calc(100% - 50px)) !important;
+  }
+  
+  .chat-panel.expanded {
+    transform: translateY(0) !important;
+  }
+  
+  .chat-panel-handle {
+    width: 80px !important;
+    height: 5px !important;
+  }
+  
+  .chat-panel-tab {
+    height: 50px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    background-color: #1890ff !important;
+    color: white !important;
+    border-top-left-radius: 16px !important;
+    border-top-right-radius: 16px !important;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.1) !important;
+    font-weight: 500 !important;
+  }
+  
+  .chat-message {
+    max-width: 90% !important;
+  }
+  
+  .chat-input-container {
+    padding: 10px 8px !important;
+  }
+  
+  /* Forms */
+  .ant-form-item {
+    margin-bottom: 16px !important;
+  }
+  
+  .ant-radio-group {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .ant-radio-wrapper {
+    margin-bottom: 8px;
+  }
+  
+  /* Fix button spacing */
+  .ant-btn + .ant-btn {
+    margin-left: 8px !important;
+  }
+  
+  /* Adjust content padding */
+  .ant-layout-content {
+    padding: 0 !important;
+  }
+  
+  /* Larger touch targets */
+  .ant-btn {
+    min-height: 40px;
+    padding: 8px 16px;
+  }
+  
+  /* Input field adjustments */
+  .ant-input, .ant-input-number, .ant-select {
+    height: 38px;
+  }
+  
+  /* Chat input specific adjustments */
+  .chat-panel .ant-input-textarea textarea.ant-input {
+    padding: 9px 12px !important;
+    line-height: 1.4 !important;
+    min-height: 38px !important;
+  }
+  
+  /* Fix button alignment on iOS */
+  .chat-panel .ant-btn {
+    transform: translateY(-50%) !important;
+    top: 50% !important;
+  }
+  
+  /* Fix SVG rendering */
+  .recharts-surface {
+    overflow: visible;
+  }
+}
+
+/* Small Tablets */
+@media screen and (min-width: 768px) and (max-width: 991px) {
+  .chat-panel {
+    height: 65% !important;
+  }
+  
+  /* Improved padding for tablets */
+  .health-dashboard-container {
+    padding: 16px !important;
+  }
+  
+  /* Adjust card layouts */
+  .welcome-cards .ant-col {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+}
+
+/* Landscape Mode */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+  .chat-panel {
+    height: 80% !important;
+  }
+  
+  .welcome-cards {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+  
+  /* Reduce paddings in landscape */
+  .ant-layout-content {
+    padding: 8px !important;
+  }
+  
+  /* Adjust header in landscape */
+  .ant-layout-header {
+    height: 48px !important;
+    line-height: 48px !important;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .mobile-menu {
+    background-color: #141414 !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+  }
+  
+  .mobile-menu-drawer .ant-drawer-content {
+    background-color: #141414 !important;
+  }
+  
+  .mobile-menu-drawer .ant-menu {
+    background-color: #141414 !important;
+  }
+  
+  .mobile-menu-drawer .ant-menu-item {
+    color: rgba(255, 255, 255, 0.85) !important;
+  }
+  
+  .mobile-menu-drawer .ant-menu-item-selected {
+    background-color: #177ddc !important;
+  }
+}
+
+/* Fix for iOS safari bounce effect */
+html, body {
+  position: fixed;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}

@@ -220,12 +220,11 @@ const UserHealthProfileForm: React.FC<UserHealthProfileFormProps> = ({
     }
   };
 
-  // Steps content definitions
-  const steps = [
-    {
-      title: 'Basic Information',
-      content: (
-        <Form form={form} layout="vertical" initialValues={userData}>
+  // Define a single form context
+  const renderForm = (stepIndex: number) => {
+    switch(stepIndex) {
+      case 0:
+        return (
           <div style={{ marginBottom: '16px', textAlign: 'right' }}>
             <Space align="center">
               <Text>Imperial</Text>
@@ -233,6 +232,19 @@ const UserHealthProfileForm: React.FC<UserHealthProfileFormProps> = ({
               <Text>Metric</Text>
             </Space>
           </div>
+        );
+      default:
+        return null;
+    }
+  };
+  
+  // Steps content definitions
+  const steps = [
+    {
+      title: 'Basic Information',
+      content: (
+        <>
+          {renderForm(0)}
           
           <Form.Item
             name="age"
@@ -316,13 +328,13 @@ const UserHealthProfileForm: React.FC<UserHealthProfileFormProps> = ({
               style={{ width: '100%' }} 
             />
           </Form.Item>
-        </Form>
+        </>
       )
     },
     {
       title: 'Health Conditions',
       content: (
-        <Form form={form} layout="vertical" initialValues={userData}>
+        <>
           <Form.Item
             name="preExistingConditions"
             label="Pre-existing Conditions"
@@ -374,13 +386,13 @@ const UserHealthProfileForm: React.FC<UserHealthProfileFormProps> = ({
           >
             <Switch />
           </Form.Item>
-        </Form>
+        </>
       )
     },
     {
       title: 'Lifestyle',
       content: (
-        <Form form={form} layout="vertical" initialValues={userData}>
+        <>
           <Form.Item
             name="exerciseLevel"
             label="Exercise Level"
@@ -432,7 +444,7 @@ const UserHealthProfileForm: React.FC<UserHealthProfileFormProps> = ({
               <Option value="other">Other</Option>
             </Select>
           </Form.Item>
-        </Form>
+        </>
       )
     }
   ];
@@ -443,36 +455,66 @@ const UserHealthProfileForm: React.FC<UserHealthProfileFormProps> = ({
       open={visible}
       onCancel={onClose}
       footer={null}
-      width={600}
-      maskStyle={{ backdropFilter: 'blur(5px)' }}
+      width="95%"
+      style={{ maxWidth: 600 }}
+      styles={{ 
+        mask: { backdropFilter: 'blur(5px)' },
+        body: { padding: '16px' }
+      }}
       destroyOnClose={false}
       centered
     >
-      <div style={{ padding: '20px 0' }}>
-        <Steps current={currentStep}>
+      <div style={{ padding: '10px 0' }}>
+        <Steps 
+          current={currentStep}
+          size="small"
+          responsive
+          style={{
+            maxWidth: '100%',
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
           {steps.map(step => (
             <Step key={step.title} title={step.title} />
           ))}
         </Steps>
         
-        <div style={{ margin: '30px 0' }}>
-          {steps[currentStep].content}
+        <div style={{ margin: '24px 0', overflowY: 'auto', maxHeight: 'calc(70vh - 200px)' }}>
+          <Form 
+            form={form} 
+            layout="vertical" 
+            initialValues={userData}
+          >
+            {steps[currentStep].content}
+          </Form>
         </div>
         
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px' }}>
           {currentStep > 0 && (
-            <Button onClick={handlePrevious}>
+            <Button 
+              onClick={handlePrevious}
+              size="middle"
+            >
               Previous
             </Button>
           )}
           <div style={{ marginLeft: 'auto' }}>
             {currentStep < steps.length - 1 && (
-              <Button type="primary" onClick={handleNext}>
+              <Button 
+                type="primary" 
+                onClick={handleNext}
+                size="middle"
+              >
                 Next
               </Button>
             )}
             {currentStep === steps.length - 1 && (
-              <Button type="primary" onClick={handleComplete}>
+              <Button 
+                type="primary" 
+                onClick={handleComplete}
+                size="middle"
+              >
                 Complete
               </Button>
             )}

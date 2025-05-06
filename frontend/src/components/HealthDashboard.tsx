@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Typography, Row, Col, Card, Skeleton, Tabs, Divider, 
-  Button, Statistic, Badge, Space, Tooltip as AntTooltip
+  Button, Statistic, Badge, Space, Tooltip as AntTooltip, Modal, Spin
 } from 'antd';
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, 
@@ -12,8 +12,14 @@ import {
   ArrowUpOutlined,
   ArrowDownOutlined,
   MinusOutlined,
-  BarChartOutlined
+  BarChartOutlined,
+  EyeOutlined,
+  InfoCircleOutlined,
+  HeartOutlined,
+  ExperimentOutlined,
+  LineChartOutlined
 } from '@ant-design/icons';
+import { useUserHealthProfile } from '../hooks/useUserHealthProfile';
 
 const { Text, Title } = Typography;
 const { TabPane } = Tabs;
@@ -118,8 +124,8 @@ const BIOMARKER_UNITS = {
   blood_oxygen_base: "%"
 };
 
-// Function to analyze health data and provide a summary
-const analyzeHealthData = (healthData: HealthData | null): string => {
+// Function to analyze health data and provide a summary based on user profile
+const analyzeHealthData = (healthData: HealthData | null, profileData: any): string => {
   if (!healthData) return "Loading your health information...";
 
   // Create a summary based on trends
@@ -138,15 +144,29 @@ const analyzeHealthData = (healthData: HealthData | null): string => {
   if (trends.crp_base === 'increasing') concernIndicators.push('CRP');
   if (trends.il6_base === 'increasing') concernIndicators.push('IL-6');
 
+  // Check user age to personalize message
+  const userAge = profileData?.age || 30; // Default to 30 if not available
+  let ageContext = "";
+  
+  if (userAge < 25) {
+    ageContext = "At your age, your body typically recovers well and adapts quickly to changes.";
+  } else if (userAge >= 25 && userAge < 40) {
+    ageContext = "For someone in your age group, these readings are important indicators of your overall wellness.";
+  } else if (userAge >= 40 && userAge < 60) {
+    ageContext = "As we reach middle age, keeping these biomarkers stable becomes increasingly important for long-term health.";
+  } else {
+    ageContext = "At your age, consistent monitoring of these biomarkers helps maintain your quality of life and independence.";
+  }
+
   // Generate overall health status message
   if (concernIndicators.length === 0 && positiveIndicators.length > 1) {
-    return `Your health metrics look excellent! Your ${positiveIndicators.join(' and ')} are in optimal ranges.`;
+    return `Your health metrics look excellent! Your ${positiveIndicators.join(' and ')} are in optimal ranges. ${ageContext}`;
   } else if (concernIndicators.length === 1) {
-    return `Your health is generally good, though your ${concernIndicators[0]} levels may need attention.`;
+    return `Your health is generally good, though your ${concernIndicators[0]} levels may need attention. ${ageContext}`;
   } else if (concernIndicators.length > 1) {
-    return `Some biomarkers including ${concernIndicators.join(' and ')} show trends that may require monitoring.`;
+    return `Some biomarkers including ${concernIndicators.join(' and ')} show trends that may require monitoring. ${ageContext}`;
   } else {
-    return "Your health metrics are within normal ranges based on recent readings.";
+    return `Your health metrics are within normal ranges based on recent readings. ${ageContext}`;
   }
 };
 
@@ -160,17 +180,37 @@ const getBiomarkerStatusColor = (value: number, biomarker: string) => {
   return "green";
 };
 
-// Get trend icon for biomarker
-const getTrendIcon = (trend: string) => {
+// Get trend icon and text for biomarker
+const getTrendInfo = (trend: string, biomarker: string) => {
+  // Determine if increasing/decreasing is good or bad based on biomarker type
+  const isIncreasingGood = ['blood_oxygen_base'].includes(biomarker);
+  const isDecreasingGood = ['cortisol_base', 'lactate_base', 'uric_acid_base', 'crp_base', 'il6_base'].includes(biomarker);
+  
   switch (trend) {
     case 'increasing':
-      return <ArrowUpOutlined style={{ color: '#ff4d4f' }} />;
+      return {
+        icon: <ArrowUpOutlined style={{ color: isIncreasingGood ? '#52c41a' : '#ff4d4f' }} />,
+        color: isIncreasingGood ? '#52c41a' : '#ff4d4f',
+        text: isIncreasingGood ? 'Improving' : 'Increasing'
+      };
     case 'decreasing':
-      return <ArrowDownOutlined style={{ color: '#52c41a' }} />;
+      return {
+        icon: <ArrowDownOutlined style={{ color: isDecreasingGood ? '#52c41a' : '#ff4d4f' }} />,
+        color: isDecreasingGood ? '#52c41a' : '#ff4d4f',
+        text: isDecreasingGood ? 'Improving' : 'Decreasing'
+      };
     case 'stable':
-      return <MinusOutlined style={{ color: '#1890ff' }} />;
+      return {
+        icon: <MinusOutlined style={{ color: '#1890ff' }} />,
+        color: '#1890ff',
+        text: 'Stable'
+      };
     default:
-      return null;
+      return {
+        icon: null,
+        color: '#999',
+        text: 'Unknown'
+      };
   }
 };
 
@@ -179,6 +219,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   const [loading, setLoading] = useState(true);
   const [analysisText, setAnalysisText] = useState<string>("");
   const [showGraphs, setShowGraphs] = useState(false);
+  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<'welcome' | 'vitals' | 'biomarkers' | 'charts'>('welcome');
 
   useEffect(() => {
     // Fetch health data from the API
@@ -262,13 +304,16 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
     }
   }, [userId, isVisible]);
 
+  // Get user health profile
+  const { profileData } = useUserHealthProfile(userId);
+
   // Generate analysis when health data changes
   useEffect(() => {
     if (healthData) {
-      const analysis = analyzeHealthData(healthData);
+      const analysis = analyzeHealthData(healthData, profileData);
       setAnalysisText(analysis);
     }
-  }, [healthData]);
+  }, [healthData, profileData]);
 
   // Prepare data for the vital signs chart
   const prepareVitalSignsData = () => {
@@ -335,7 +380,269 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   // Don't render if not visible
   if (!isVisible) return null;
 
-  // Render the welcome summary view
+  // Render the detailed biomarker card
+  const renderDetailedBiomarkerCard = () => {
+    if (!expandedCard || !healthData) return null;
+    
+    const biomarker = expandedCard;
+    const value = healthData.averages[biomarker as keyof BiomarkerAverages] || 0;
+    const trend = healthData.trends[biomarker as keyof BiomarkerTrends] || '';
+    const name = BIOMARKER_NAMES[biomarker as keyof typeof BIOMARKER_NAMES];
+    const unit = BIOMARKER_UNITS[biomarker as keyof typeof BIOMARKER_UNITS];
+    const range = NORMAL_RANGES[biomarker as keyof typeof NORMAL_RANGES];
+    const trendInfo = getTrendInfo(trend, biomarker);
+    
+    // Get historical data for chart
+    const chartData = healthData.readings
+      .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      .map(reading => ({
+        time: new Date(reading.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+        value: reading[biomarker as keyof BiomarkerReading]
+      }));
+      
+    return (
+      <Modal
+        title={<Title level={4}>{name} Details</Title>}
+        open={!!expandedCard}
+        onCancel={() => setExpandedCard(null)}
+        footer={null}
+        width={700}
+      >
+        <div style={{ marginBottom: 20 }}>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Card>
+                <Statistic 
+                  title="Current Value"
+                  value={value.toFixed(1)}
+                  suffix={unit}
+                  precision={1}
+                />
+              </Card>
+            </Col>
+            <Col span={12}>
+              <Card>
+                <Statistic 
+                  title="Normal Range"
+                  value={`${range.min} - ${range.max}`}
+                  suffix={unit}
+                />
+              </Card>
+            </Col>
+          </Row>
+        </div>
+        
+        <div style={{ marginBottom: 20 }}>
+          <Card>
+            <div style={{ marginBottom: 16 }}>
+              <Text strong>Trend Analysis:</Text>
+              <p style={{ color: trendInfo.color }}>
+                Your {name.toLowerCase()} is currently <b>{trendInfo.text.toLowerCase()}</b>. 
+                {value < range.min 
+                  ? ` This is below the normal range, which may indicate an issue.`
+                  : value > range.max 
+                    ? ` This is above the normal range, which may require attention.`
+                    : ` This is within the normal range, which is good.`
+                }
+              </p>
+            </div>
+          </Card>
+        </div>
+        
+        <ResponsiveContainer width="100%" height={200}>
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis dataKey="time" />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="value" stroke="#8884d8" />
+          </LineChart>
+        </ResponsiveContainer>
+      </Modal>
+    );
+  };
+
+  // Render a single biomarker card
+  const renderBiomarkerCard = (biomarker: string) => {
+    const value = healthData?.averages[biomarker as keyof BiomarkerAverages] || 0;
+    const trend = healthData?.trends[biomarker as keyof BiomarkerTrends] || '';
+    const name = BIOMARKER_NAMES[biomarker as keyof typeof BIOMARKER_NAMES];
+    const unit = BIOMARKER_UNITS[biomarker as keyof typeof BIOMARKER_UNITS];
+    const color = getBiomarkerStatusColor(value, biomarker);
+    const trendInfo = getTrendInfo(trend, biomarker);
+    const range = NORMAL_RANGES[biomarker as keyof typeof NORMAL_RANGES];
+
+    // Generate a user-friendly message about the biomarker
+    const getMessage = () => {
+      if (value < range.min) {
+        return `Your ${name.toLowerCase()} is below normal range`;
+      } else if (value > range.max) {
+        return `Your ${name.toLowerCase()} is above normal range`;
+      } else {
+        return `Your ${name.toLowerCase()} is within normal range`;
+      }
+    };
+
+    return (
+      <Card 
+        hoverable
+        style={{ height: '100%', display: 'flex', flexDirection: 'column' }}
+        onClick={() => setExpandedCard(biomarker)}
+      >
+        <div style={{ marginBottom: 8 }}>
+          <Space>
+            <Badge status={color as any} />
+            <Text strong style={{ fontSize: '16px' }}>{name}</Text>
+            {trendInfo.icon}
+          </Space>
+        </div>
+        
+        <div style={{ marginBottom: 8 }}>
+          <Text type="secondary" style={{ fontSize: '14px' }}>
+            {getMessage()}
+          </Text>
+        </div>
+        
+        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <Text>{value.toFixed(1)} {unit}</Text>
+          <Button 
+            size="small" 
+            type="text" 
+            icon={<EyeOutlined />}
+            onClick={(e) => {
+              e.stopPropagation();
+              setExpandedCard(biomarker);
+            }}
+          >
+            Details
+          </Button>
+        </div>
+      </Card>
+    );
+  };
+
+  // Create linked text for biomarkers in summary
+  const createLinkedSummaryText = (text: string) => {
+    if (!text) return null;
+    
+    // List of all biomarkers to look for in text
+    const biomarkers = [
+      { key: 'cortisol_base', name: 'cortisol' },
+      { key: 'lactate_base', name: 'lactate' },
+      { key: 'uric_acid_base', name: 'uric acid' },
+      { key: 'crp_base', name: 'CRP' },
+      { key: 'il6_base', name: 'IL-6' },
+      { key: 'body_temp_base', name: 'body temperature' },
+      { key: 'heart_rate_base', name: 'heart rate' },
+      { key: 'blood_oxygen_base', name: 'blood oxygen' }
+    ];
+    
+    let parts: (string | JSX.Element)[] = [text];
+    
+    // For each biomarker, check if it exists in any text part and split accordingly
+    biomarkers.forEach(biomarker => {
+      parts = parts.flatMap(part => {
+        // Only process string parts, leave JSX elements untouched
+        if (typeof part !== 'string') return part;
+        
+        const lowerPart = part.toLowerCase();
+        const lowerName = biomarker.name.toLowerCase();
+        
+        // Find the biomarker in the text (case insensitive)
+        const index = lowerPart.indexOf(lowerName);
+        if (index === -1) return part;
+        
+        // Extract the actual text as it appears in the original string
+        const actualText = part.substring(index, index + biomarker.name.length);
+        
+        // Split the text into parts: before, biomarker (as JSX), and after
+        return [
+          part.substring(0, index),
+          <Text key={biomarker.key} 
+                style={{ color: '#1890ff', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={(e) => {
+                  e.preventDefault(); // Prevent any default handling
+                  e.stopPropagation(); // Stop event bubbling
+                  setExpandedCard(biomarker.key);
+                }}>
+            {actualText}
+          </Text>,
+          part.substring(index + biomarker.name.length)
+        ];
+      });
+    });
+    
+    return parts;
+  };
+
+  // Render welcome view with action buttons
+  const renderWelcomeView = () => {
+    const firstName = profileData?.givenName || 'there';
+    
+    return (
+      <div style={{ padding: '20px 0', textAlign: 'center' }}>
+        <div style={{ marginBottom: '30px' }}>
+          <Title level={1}>Welcome back!</Title>
+          <Text style={{ fontSize: '16px', color: '#666', display: 'block', marginTop: '16px' }}>
+            What would you like to dive into today?
+          </Text>
+        </div>
+        
+        <Row justify="center" gutter={[16, 16]} className="welcome-cards" style={{ maxWidth: '1000px', margin: '0 auto' }}>
+          <Col xs={24} sm={12} lg={8}>
+            <Card 
+              hoverable 
+              style={{ textAlign: 'center', height: '200px' }}
+              onClick={() => setActiveView('vitals')}
+            >
+              <div style={{ fontSize: '40px', color: '#1890ff', marginBottom: '16px' }}>
+                <HeartOutlined />
+              </div>
+              <Title level={4}>View Vitals</Title>
+              <Text type="secondary">Check your heart rate, temperature, and oxygen levels</Text>
+            </Card>
+          </Col>
+          
+          <Col xs={24} sm={12} lg={8}>
+            <Card 
+              hoverable 
+              style={{ textAlign: 'center', height: '200px' }}
+              onClick={() => setActiveView('biomarkers')}
+            >
+              <div style={{ fontSize: '40px', color: '#52c41a', marginBottom: '16px' }}>
+                <ExperimentOutlined />
+              </div>
+              <Title level={4}>View Biomarkers</Title>
+              <Text type="secondary">Review your key biomarker indicators</Text>
+            </Card>
+          </Col>
+          
+          <Col xs={24} sm={12} lg={8}>
+            <Card 
+              hoverable 
+              style={{ textAlign: 'center', height: '200px' }}
+              onClick={() => setActiveView('charts')}
+            >
+              <div style={{ fontSize: '40px', color: '#722ed1', marginBottom: '16px' }}>
+                <LineChartOutlined />
+              </div>
+              <Title level={4}>View Charts</Title>
+              <Text type="secondary">Analyze your health data in detail</Text>
+            </Card>
+          </Col>
+        </Row>
+        
+        {loading && (
+          <div style={{ marginTop: '30px' }}>
+            <Spin size="large" />
+            <Text style={{ display: 'block', marginTop: '16px' }}>Loading your health data...</Text>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Render the summary view with all cards
   const renderSummaryView = () => {
     return (
       <div style={{ marginBottom: '24px' }}>
@@ -347,17 +654,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
               ) : (
                 <div>
                   <Text style={{ fontSize: '16px', color: '#333' }}>
-                    {analysisText}
+                    {createLinkedSummaryText(analysisText)}
                   </Text>
-                  <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                    <Button 
-                      type="primary"
-                      icon={<BarChartOutlined />}
-                      onClick={() => setShowGraphs(true)}
-                    >
-                      View Detailed Graphs
-                    </Button>
-                  </div>
                 </div>
               )}
             </Card>
@@ -369,43 +667,18 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
           {loading ? (
             Array(3).fill(null).map((_, index) => (
               <Col xs={24} sm={8} key={index}>
-                <Card>
-                  <Skeleton active paragraph={{ rows: 1 }} />
+                <Card style={{ height: '160px' }}>
+                  <Skeleton active paragraph={{ rows: 2 }} />
                 </Card>
               </Col>
             ))
           ) : (
             <>
-              {['heart_rate_base', 'body_temp_base', 'blood_oxygen_base'].map((biomarker) => {
-                const value = healthData?.averages[biomarker as keyof BiomarkerAverages] || 0;
-                const trend = healthData?.trends[biomarker as keyof BiomarkerTrends] || '';
-                const name = BIOMARKER_NAMES[biomarker as keyof typeof BIOMARKER_NAMES];
-                const unit = BIOMARKER_UNITS[biomarker as keyof typeof BIOMARKER_UNITS];
-                const color = getBiomarkerStatusColor(value, biomarker);
-
-                return (
-                  <Col xs={24} sm={8} key={biomarker}>
-                    <Card>
-                      <Statistic
-                        title={
-                          <Space>
-                            <Badge status={color as any} />
-                            <span>{name}</span>
-                          </Space>
-                        }
-                        value={value.toFixed(1)}
-                        suffix={
-                          <Space>
-                            <span>{unit}</span>
-                            {getTrendIcon(trend)}
-                          </Space>
-                        }
-                        precision={1}
-                      />
-                    </Card>
-                  </Col>
-                );
-              })}
+              {['heart_rate_base', 'body_temp_base', 'blood_oxygen_base'].map((biomarker) => (
+                <Col xs={24} sm={8} key={biomarker} style={{ height: '100%' }}>
+                  {renderBiomarkerCard(biomarker)}
+                </Col>
+              ))}
             </>
           )}
         </Row>
@@ -414,60 +687,125 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
         <Row gutter={[16, 16]}>
           {loading ? (
             Array(5).fill(null).map((_, index) => (
-              <Col xs={24} sm={12} md={8} lg={6} xl={4} key={index}>
-                <Card>
-                  <Skeleton active paragraph={{ rows: 1 }} />
+              <Col xs={24} sm={12} md={8} key={index}>
+                <Card style={{ height: '160px' }}>
+                  <Skeleton active paragraph={{ rows: 2 }} />
                 </Card>
               </Col>
             ))
           ) : (
             <>
-              {['cortisol_base', 'lactate_base', 'uric_acid_base', 'crp_base', 'il6_base'].map((biomarker) => {
-                const value = healthData?.averages[biomarker as keyof BiomarkerAverages] || 0;
-                const trend = healthData?.trends[biomarker as keyof BiomarkerTrends] || '';
-                const name = BIOMARKER_NAMES[biomarker as keyof typeof BIOMARKER_NAMES];
-                const unit = BIOMARKER_UNITS[biomarker as keyof typeof BIOMARKER_UNITS];
-                const color = getBiomarkerStatusColor(value, biomarker);
-
-                return (
-                  <Col xs={24} sm={12} md={8} lg={6} xl={4} key={biomarker}>
-                    <Card>
-                      <Statistic
-                        title={
-                          <Space>
-                            <Badge status={color as any} />
-                            <span>{name}</span>
-                          </Space>
-                        }
-                        value={value.toFixed(1)}
-                        suffix={
-                          <Space>
-                            <span>{unit}</span>
-                            {getTrendIcon(trend)}
-                          </Space>
-                        }
-                        precision={1}
-                      />
-                    </Card>
-                  </Col>
-                );
-              })}
+              {['cortisol_base', 'lactate_base', 'uric_acid_base', 'crp_base', 'il6_base'].map((biomarker) => (
+                <Col xs={24} sm={12} md={8} key={biomarker} style={{ height: '100%' }}>
+                  {renderBiomarkerCard(biomarker)}
+                </Col>
+              ))}
             </>
           )}
         </Row>
+        
+        {renderDetailedBiomarkerCard()}
+      </div>
+    );
+  };
+  
+  // Render just the vital signs section
+  const renderVitalsView = () => {
+    return (
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <Title level={2}>Vital Signs</Title>
+          <Button onClick={() => setActiveView('welcome')}>Back to Dashboard</Button>
+        </div>
+        
+        <Card bordered={false} style={{ marginBottom: '24px' }}>
+          {loading ? (
+            <Skeleton active paragraph={{ rows: 1 }} />
+          ) : (
+            <Text style={{ fontSize: '16px', color: '#333' }}>
+              {createLinkedSummaryText(analysisText)}
+            </Text>
+          )}
+        </Card>
+        
+        <Row gutter={[16, 16]}>
+          {loading ? (
+            Array(3).fill(null).map((_, index) => (
+              <Col xs={24} sm={8} key={index}>
+                <Card style={{ height: '160px' }}>
+                  <Skeleton active paragraph={{ rows: 2 }} />
+                </Card>
+              </Col>
+            ))
+          ) : (
+            <>
+              {['heart_rate_base', 'body_temp_base', 'blood_oxygen_base'].map((biomarker) => (
+                <Col xs={24} sm={8} key={biomarker} style={{ height: '100%' }}>
+                  {renderBiomarkerCard(biomarker)}
+                </Col>
+              ))}
+            </>
+          )}
+        </Row>
+        
+        {renderDetailedBiomarkerCard()}
+      </div>
+    );
+  };
+  
+  // Render just the biomarkers section
+  const renderBiomarkersView = () => {
+    return (
+      <div style={{ marginBottom: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <Title level={2}>Biomarkers</Title>
+          <Button onClick={() => setActiveView('welcome')}>Back to Dashboard</Button>
+        </div>
+        
+        <Card bordered={false} style={{ marginBottom: '24px' }}>
+          {loading ? (
+            <Skeleton active paragraph={{ rows: 1 }} />
+          ) : (
+            <Text style={{ fontSize: '16px', color: '#333' }}>
+              {createLinkedSummaryText(analysisText)}
+            </Text>
+          )}
+        </Card>
+        
+        <Row gutter={[16, 16]}>
+          {loading ? (
+            Array(5).fill(null).map((_, index) => (
+              <Col xs={24} sm={12} md={8} key={index}>
+                <Card style={{ height: '160px' }}>
+                  <Skeleton active paragraph={{ rows: 2 }} />
+                </Card>
+              </Col>
+            ))
+          ) : (
+            <>
+              {['cortisol_base', 'lactate_base', 'uric_acid_base', 'crp_base', 'il6_base'].map((biomarker) => (
+                <Col xs={24} sm={12} md={8} key={biomarker} style={{ height: '100%' }}>
+                  {renderBiomarkerCard(biomarker)}
+                </Col>
+              ))}
+            </>
+          )}
+        </Row>
+        
+        {renderDetailedBiomarkerCard()}
       </div>
     );
   };
 
-  // Render the detailed graphs view
+  // Render the detailed graphs view has been removed to avoid duplicate declaration
+
+  // Update the GraphsView to include a back button
   const renderGraphsView = () => {
     return (
       <div>
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Title level={4}>Health Analytics</Title>
-          <Button onClick={() => setShowGraphs(false)}>
-            Back to Summary
-          </Button>
+          <Title level={2}>Health Analytics</Title>
+          <Button onClick={() => setActiveView('welcome')}>Back to Dashboard</Button>
         </div>
 
         <Tabs defaultActiveKey="1">
@@ -639,18 +977,37 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
     );
   };
 
+  // Render the appropriate view based on activeView state
+  const renderContent = () => {
+    switch (activeView) {
+      case 'welcome':
+        return renderWelcomeView();
+      case 'vitals':
+        return renderVitalsView();
+      case 'biomarkers':
+        return renderBiomarkersView();
+      case 'charts':
+        return renderGraphsView();
+      default:
+        return renderWelcomeView();
+    }
+  };
+
   return (
     <div 
+      className="health-dashboard-container"
       style={{
         padding: '20px',
         paddingBottom: '170px', // Ensure bottom graph isn't covered by chat panel
         height: '100%', 
         overflowY: 'auto',
         transition: 'opacity 0.3s ease-in-out',
-        opacity: isVisible ? 1 : 0
+        opacity: isVisible ? 1 : 0,
+        WebkitOverflowScrolling: 'touch' // Enable smooth scrolling on iOS
       }}
     >
-      {showGraphs ? renderGraphsView() : renderSummaryView()}
+      {renderContent()}
+      {renderDetailedBiomarkerCard()}
     </div>
   );
 };

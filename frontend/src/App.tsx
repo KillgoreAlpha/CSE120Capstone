@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from "react-oidc-context";
 import {
   Layout,
@@ -12,6 +12,9 @@ import {
   message,
   List,
   Empty,
+  Drawer,
+  Menu,
+  Divider,
 } from 'antd';
 import {
   PlusOutlined,
@@ -22,7 +25,9 @@ import {
   LoadingOutlined,
   HistoryOutlined,
   MessageOutlined,
-  DeleteOutlined
+  DeleteOutlined,
+  DashboardOutlined,
+  SettingOutlined
 } from '@ant-design/icons';
 
 // Import our components
@@ -30,6 +35,9 @@ import HealthDashboard from './components/HealthDashboard';
 import ChatPanel from './components/ChatPanel';
 import UserHealthProfileForm from './components/UserHealthProfileForm';
 import { useUserHealthProfile } from './hooks/useUserHealthProfile';
+
+// Import responsive styles
+import './responsive.css';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -56,7 +64,25 @@ const App = () => {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([]);
   const [loadingChatSessions, setLoadingChatSessions] = useState(false);
   const [chatExpanded, setChatExpanded] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const auth = useAuth();
+  
+  // Set up responsive behavior
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    // Check on mount
+    checkMobile();
+    
+    // Add resize listener
+    window.addEventListener('resize', checkMobile);
+    
+    // Clean up
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
   // Define getUserId function
   const getUserId = (user: any): string => {
@@ -125,7 +151,11 @@ const App = () => {
   // getUserId function already defined above
 
   const toggleSider = () => {
-    setCollapsed(!collapsed);
+    if (isMobile) {
+      setMobileMenuOpen(!mobileMenuOpen);
+    } else {
+      setCollapsed(!collapsed);
+    }
   };
 
   // Get a display name from the user profile
@@ -314,7 +344,7 @@ const App = () => {
         centered
         width={400}
         style={{ borderRadius: '16px' }}
-        bodyStyle={{ padding: '24px' }}
+        styles={{ body: { padding: '24px' } }}
       >
         <Card variant='borderless'>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -340,6 +370,116 @@ const App = () => {
         </Card>
       </Modal>
 
+      {/* Mobile Menu Drawer - only shown on mobile */}
+      <Drawer
+        title="X10e Menu"
+        placement="left"
+        onClose={() => setMobileMenuOpen(false)}
+        open={isMobile && mobileMenuOpen}
+        className="mobile-menu-drawer"
+        width={250}
+        styles={{ body: { padding: 0 } }}
+      >
+        <Menu
+          mode="inline"
+          defaultSelectedKeys={['dashboard']}
+          style={{ height: '100%', borderRight: 0 }}
+          items={[
+            {
+              key: 'dashboard',
+              icon: <DashboardOutlined />,
+              label: 'Dashboard',
+              onClick: () => {
+                setMobileMenuOpen(false);
+                setChatExpanded(false);
+              }
+            },
+            {
+              key: 'new-chat',
+              icon: <PlusOutlined />,
+              label: 'New Chat',
+              onClick: () => {
+                startNewChat();
+                setMobileMenuOpen(false);
+              }
+            },
+            {
+              key: 'chat-history',
+              icon: <HistoryOutlined />,
+              label: 'Chat History'
+            },
+            {
+              key: 'profile',
+              icon: <UserOutlined />,
+              label: 'Health Profile',
+              onClick: () => {
+                setShowProfileForm(true);
+                setMobileMenuOpen(false);
+              }
+            },
+            {
+              key: 'settings',
+              icon: <SettingOutlined />,
+              label: 'Settings'
+            },
+            {
+              key: 'logout',
+              icon: <LoginOutlined />,
+              label: 'Logout',
+              onClick: () => signOutRedirect()
+            }
+          ]}
+        />
+        
+        {/* Chat history in mobile menu */}
+        {auth.isAuthenticated && (
+          <div style={{ padding: '0 16px 16px 16px' }}>
+            <Divider orientation="left" style={{ fontSize: '14px', margin: '8px 0 16px 0' }}>
+              Recent Chats
+            </Divider>
+            
+            {loadingChatSessions ? (
+              <div style={{ padding: '16px', textAlign: 'center' }}>
+                <Spin size="small" />
+              </div>
+            ) : chatSessions.length === 0 ? (
+              <Empty 
+                image={Empty.PRESENTED_IMAGE_SIMPLE} 
+                description="No chat history yet" 
+                style={{ margin: '16px 0' }}
+              />
+            ) : (
+              <List
+                size="small"
+                dataSource={chatSessions.slice(0, 5)} // Limit to 5 most recent
+                renderItem={(item) => (
+                  <List.Item
+                    style={{ 
+                      padding: '8px 0',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid #f0f0f0'
+                    }}
+                    onClick={() => {
+                      loadChatSession(item.sessionId);
+                      setMobileMenuOpen(false);
+                    }}
+                  >
+                    <List.Item.Meta
+                      avatar={<Avatar icon={<MessageOutlined />} size="small" />}
+                      title={
+                        <div style={{ maxWidth: '180px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {item.title}
+                        </div>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            )}
+          </div>
+        )}
+      </Drawer>
+
       {/* Main Layout - with blur effect when not authenticated */}
       <Header style={{
         background: '#fff',
@@ -358,7 +498,7 @@ const App = () => {
           <Title level={4} style={{ margin: 0, marginLeft: 16 }}>X10e</Title>
         </div>
         <Space>
-          {auth.isAuthenticated && (
+          {auth.isAuthenticated && !isMobile && (
             <Space>
               <Button
                 type="text"
@@ -378,7 +518,7 @@ const App = () => {
           )}
           <Avatar icon={<UserOutlined />} />
           {auth.isAuthenticated && (
-            <div style={{ marginLeft: 8, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ marginLeft: 8, display: 'flex', flexDirection: 'column' }} className="user-info-text">
               <Text strong ellipsis style={{ maxWidth: '150px' }}>
                 {getUserDisplayName(auth.user?.profile)}
               </Text>
@@ -391,104 +531,107 @@ const App = () => {
       </Header>
 
       <Layout style={{ flex: 1, overflow: 'hidden' }}>
-        <Sider
-          width={260}
-          collapsedWidth={80}
-          collapsible
-          collapsed={collapsed}
-          trigger={null}
-          style={{
-            background: '#f0f2f5',
-            height: '100%',
-            overflow: 'auto',
-            ...blurStyle
-          }}
-        >
-          <div style={{ padding: '16px' }}>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              style={{ width: '100%' }}
-              onClick={startNewChat}
-            >
-              {!collapsed && 'New chat'}
-            </Button>
-            
-            {!collapsed && (
-              <div style={{ margin: '16px 8px 8px 8px' }}>
-                <Space align="center">
-                  <HistoryOutlined />
-                  <Text strong>Chat History</Text>
-                </Space>
-              </div>
-            )}
-          </div>
-
-          {/* Only show chat history when sidebar is expanded */}
-          {!collapsed && (
-            <>
-              {loadingChatSessions ? (
-                <div style={{ padding: '24px', textAlign: 'center' }}>
-                  <Spin size="small" />
-                  <div style={{ marginTop: '8px' }}>
-                    <Text type="secondary">Loading chats...</Text>
-                  </div>
+        {/* Only show Sider on desktop */}
+        {!isMobile && (
+          <Sider
+            width={260}
+            collapsedWidth={80}
+            collapsible
+            collapsed={collapsed}
+            trigger={null}
+            style={{
+              background: '#f0f2f5',
+              height: '100%',
+              overflow: 'auto',
+              ...blurStyle
+            }}
+          >
+            <div style={{ padding: '16px' }}>
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                style={{ width: '100%' }}
+                onClick={startNewChat}
+              >
+                {!collapsed && 'New chat'}
+              </Button>
+              
+              {!collapsed && (
+                <div style={{ margin: '16px 8px 8px 8px' }}>
+                  <Space align="center">
+                    <HistoryOutlined />
+                    <Text strong>Chat History</Text>
+                  </Space>
                 </div>
-              ) : chatSessions.length === 0 ? (
-                <Empty
-                  image={Empty.PRESENTED_IMAGE_SIMPLE}
-                  description="No chat history yet"
-                  style={{ margin: '24px 0' }}
-                />
-              ) : (
-                <List
-                  itemLayout="horizontal"
-                  dataSource={chatSessions}
-                  style={{ 
-                    background: '#f0f2f5', 
-                    border: 'none',
-                    padding: '0 16px'
-                  }}
-                  renderItem={(item) => (
-                    <List.Item
-                      style={{ 
-                        padding: '8px 0',
-                        cursor: 'pointer',
-                        borderBottom: '1px solid #f0f0f0',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
-                      onClick={() => loadChatSession(item.sessionId)}
-                    >
-                      <List.Item.Meta
-                        avatar={<Avatar icon={<MessageOutlined />} size="small" />}
-                        title={
-                          <div style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {item.title}
-                          </div>
-                        }
-                        description={
-                          <Text type="secondary" style={{ fontSize: '12px' }}>
-                            {new Date(item.timestamp).toLocaleDateString()} • {item.messageCount} messages
-                          </Text>
-                        }
-                      />
-                      <Button
-                        type="text"
-                        danger
-                        size="small"
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => deleteChatSession(item.sessionId, e)}
-                        style={{ marginLeft: '8px' }}
-                      />
-                    </List.Item>
-                  )}
-                />
               )}
-            </>
-          )}
-        </Sider>
+            </div>
+
+            {/* Only show chat history when sidebar is expanded */}
+            {!collapsed && (
+              <>
+                {loadingChatSessions ? (
+                  <div style={{ padding: '24px', textAlign: 'center' }}>
+                    <Spin size="small" />
+                    <div style={{ marginTop: '8px' }}>
+                      <Text type="secondary">Loading chats...</Text>
+                    </div>
+                  </div>
+                ) : chatSessions.length === 0 ? (
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="No chat history yet"
+                    style={{ margin: '24px 0' }}
+                  />
+                ) : (
+                  <List
+                    itemLayout="horizontal"
+                    dataSource={chatSessions}
+                    style={{ 
+                      background: '#f0f2f5', 
+                      border: 'none',
+                      padding: '0 16px'
+                    }}
+                    renderItem={(item) => (
+                      <List.Item
+                        style={{ 
+                          padding: '8px 0',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #f0f0f0',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                        onClick={() => loadChatSession(item.sessionId)}
+                      >
+                        <List.Item.Meta
+                          avatar={<Avatar icon={<MessageOutlined />} size="small" />}
+                          title={
+                            <div style={{ maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {item.title}
+                            </div>
+                          }
+                          description={
+                            <Text type="secondary" style={{ fontSize: '12px' }}>
+                              {new Date(item.timestamp).toLocaleDateString()} • {item.messageCount} messages
+                            </Text>
+                          }
+                        />
+                        <Button
+                          type="text"
+                          danger
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          onClick={(e) => deleteChatSession(item.sessionId, e)}
+                          style={{ marginLeft: '8px' }}
+                        />
+                      </List.Item>
+                    )}
+                  />
+                )}
+              </>
+            )}
+          </Sider>
+        )}
 
         <Content style={{
           position: 'relative',
