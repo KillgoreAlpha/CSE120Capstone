@@ -197,7 +197,7 @@ def generate_single_reading(
     lactate_base = 1.3          # mmol/L
     uric_acid_base = 5.3        # mg/dL
     crp_base = 1.0              # mg/L
-    il6_base = 2.0              # pg/mL
+    il6_base = 1.5              # pg/mL
     body_temp_base = 37.0       # °C
     heart_rate_base = 75        # BPM
     blood_oxygen_base = 97      # %
@@ -309,28 +309,15 @@ def stream_biomarker_data(
     base_time = start_time
     time_offset = 0.0
     
-    # Start WebSocket server in separate thread if enabled
+    # We don't need a separate WebSocket server since the main Node.js server
+    # already has WebSocket support. Instead, we'll just use the REST API endpoint
+    # which will broadcast data to all WebSocket clients automatically.
+    
     ws_thread = None
     ws_clients = []
     if websocket_port:
-        def websocket_server():
-            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server.bind(('0.0.0.0', websocket_port))
-            server.listen(5)
-            print(f"WebSocket server started on port {websocket_port}")
-            
-            while True:
-                try:
-                    client, address = server.accept()
-                    print(f"WebSocket client connected: {address}")
-                    ws_clients.append(client)
-                except:
-                    break
-        
-        ws_thread = threading.Thread(target=websocket_server)
-        ws_thread.daemon = True
-        ws_thread.start()
+        print(f"Note: Custom WebSocket server on port {websocket_port} is not needed.")
+        print("Data will be broadcast through the main server's WebSocket implementation.")
     
     try:
         while True:
@@ -363,20 +350,9 @@ def stream_biomarker_data(
                     if verbose:
                         print(f"Error sending data to server: {e}")
             
-            # Send data to all WebSocket clients if enabled
-            if websocket_port and ws_clients:
-                data_str = json.dumps(reading) + '\n'
-                disconnected_clients = []
-                
-                for client in ws_clients:
-                    try:
-                        client.send(data_str.encode('utf-8'))
-                    except:
-                        disconnected_clients.append(client)
-                
-                # Remove disconnected clients
-                for client in disconnected_clients:
-                    ws_clients.remove(client)
+            # No need to directly send data to WebSocket clients since 
+            # the server will handle broadcasting to all connected clients
+            # when we send data to the /readings endpoint
             
             # Print progress
             reading_count += 1

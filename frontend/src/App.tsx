@@ -276,8 +276,10 @@ const App = () => {
       }}>
         <Spin
           indicator={<LoadingOutlined style={{ fontSize: 32 }} spin />}
-          tip="Loading your session..."
-        />
+          rootClassName="full-screen-spin"
+        >
+          <div>Loading your session...</div>
+        </Spin>
       </div>
     );
   }
@@ -318,7 +320,7 @@ const App = () => {
         centered
         width={400}
         style={{ borderRadius: '16px' }}
-        bodyStyle={{ padding: '24px' }}
+        styles={{ body: { padding: '24px' } }}
       >
         <Card variant='borderless'>
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
@@ -565,7 +567,7 @@ const App = () => {
                                   />
                                   <Text strong>X10e</Text>
                                 </div>
-                                <Spin indicator={<LoadingOutlined style={{ fontSize: 16 }} spin />} />
+                                <Spin indicator={<LoadingOutlined style={{ fontSize: 16 }} spin />}><div></div></Spin>
                               </Card>
                             </div>
                           )}
