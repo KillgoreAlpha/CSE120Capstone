@@ -7,8 +7,6 @@ import path from "path";
 import axios from "axios";
 import cors from 'cors';
 import multer from 'multer';
-import http from "http";
-import { WebSocketServer } from "ws";
 import {
   BedrockAgentRuntimeClient,
   InvokeAgentCommand,
@@ -17,12 +15,9 @@ import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { TranscribeClient, StartTranscriptionJobCommand, GetTranscriptionJobCommand } from "@aws-sdk/client-transcribe";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { fileURLToPath } from 'url';
-
-// Import routes
-import researchRoutes from './routes/research.js';
+import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
 
 const app = express();
-const server = http.createServer(app);
 app.use(express.json());
 app.use(cors({
   origin: '*', // In production, limit this to your frontend's URL
@@ -30,17 +25,10 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Set up WebSocket server for real-time data streaming
-const wss = new WebSocketServer({ server });
-const connectedClients = new Set();
-
 // Set up directory for chat storage (local atm, need to migrate to s3)
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const CHATS_DIR = path.join(__dirname, 'chats');
-
-// Register routes
-app.use('/research', researchRoutes);
 
 // Create chats directory if it doesn't exist
 if (!fs.existsSync(CHATS_DIR)) {
@@ -162,6 +150,44 @@ db.exec(`
     timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
   );
 `);
+
+const lambda = new LambdaClient({
+  region: "us-east-2",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
+
+async function filterWithLambda(query) {
+  const command = new InvokeCommand({
+    FunctionName: "GuardRails",
+    Payload: Buffer.from(JSON.stringify({ query }))
+  });
+
+  const response = await lambda.send(command);
+  const payload = JSON.parse(Buffer.from(response.Payload).toString());
+
+  if (!payload.allowed) {
+    throw new Error(`Query rejected: ${payload.reason}`);
+  }
+
+  return payload;
+}
+
+//async function lambdaTranslateEnglish(query, lang) {
+  //const command = new InvokeCommand({
+    //FunctionName: "NonEnglishLocal",
+    //Payload: Buffer.from(JSON.stringify({ text: query, source_language: lang })),
+  //});
+
+  //const response = await lambda.send(command);
+
+  //const payload = JSON.parse(Buffer.from(response.Payload).toString());
+  //const parsed = typeof payload.body === 'string' ? JSON.parse(payload.body) : payload.body;
+
+//  return parsed.translated_text;
+//}
 
 // Consolidated prepared statements for reuse
 const statements = {
@@ -836,13 +862,31 @@ app.delete("/chat-session/:userId/:sessionId", (req, res) => {
 // Updated chat endpoint
 app.post("/chat", async (req, res) => {
   try {
-    const { question, userId, userHealthProfile } = req.body;
+    const { question, userId, userHealthProfile, userData } = req.body;
     // Ensure we always have a valid sessionId
     const sessionId = req.body.sessionId || generateSessionId();
+    
+    //let translatedQuestion = question;
+    //console.log(userData.language);
+
+    // Only translate if user's language is not English
+    //if (userData?.language && userData.language !== "english") {
+      //try {
+        //translatedQuestion = await lambdaTranslateEnglish(question, userData.language);
+        //console.log("Translated Question:", translatedQuestion);
+      //} catch (err) {
+        //console.error("Translation failed, using original question. Error:", err);
+      //}
+    //}
+
+    //console.log(translatedQuestion);
+
 
     if (!question) {
       return res.status(400).json({ error: "Missing question in request body." });
     }
+
+    const lambdaFilter = await filterWithLambda(question);
 
     // If userId is provided, save the user message
     if (userId) {
@@ -946,8 +990,32 @@ app.get("/biomarker/:name", (req, res) => {
 
 
 
-// Health Readings Endpoints - GET endpoints
-// (POST endpoint is defined separately to ensure WebSocket broadcasting works properly)
+// Health Readings Endpoints
+app.post("/readings", (req, res) => {
+  try {
+    const { cortisol_base, lactate_base, uric_acid_base, crp_base, il6_base, body_temp_base, heart_rate_base, blood_oxygen_base } = req.body;
+    
+    const result = statements.readings.insert.run(
+      cortisol_base || null, 
+      lactate_base || null, 
+      uric_acid_base || null, 
+      crp_base || null, 
+      il6_base || null,
+      body_temp_base || null,
+      heart_rate_base || null,
+      blood_oxygen_base || null
+    );
+    
+    res.json({ 
+      success: true, 
+      id: result.lastInsertRowid,
+      message: "Health reading added successfully" 
+    });
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).json({ error: "Failed to store health reading" });
+  }
+});
 
 app.get("/readings", (req, res) => {
   try {
@@ -1188,314 +1256,7 @@ process.on('SIGINT', () => {
 });
 
 
-// WebSocket server event handlers
-wss.on('connection', (ws, req) => {
-  console.log('New WebSocket client connected');
-  
-  // Add unique ID to help with debugging
-  ws.id = Date.now() + '-' + Math.random().toString(36).substring(2, 10);
-  
-  // Add client to the set
-  connectedClients.add(ws);
-  
-  // Enhanced error handling for the initial connection
-  ws.isAlive = true;
-  
-  // Give the connection a moment to stabilize before sending data
-  setTimeout(async () => {
-    // Verify the connection is still open
-    if (ws.readyState !== 1) {
-      console.log(`Connection ${ws.id} closed before initialization completed`);
-      connectedClients.delete(ws);
-      return;
-    }
-    
-    // Send a ping to verify connection is working
-    try {
-      ws.send(JSON.stringify({ 
-        type: 'ping', 
-        message: 'Connection established',
-        clientId: ws.id,
-        timestamp: new Date().toISOString()
-      }));
-      console.log('Sent welcome ping to new WebSocket client');
-    } catch (error) {
-      console.error('Error sending welcome ping:', error);
-      ws.isAlive = false;
-      connectedClients.delete(ws);
-      ws.terminate();
-      return;
-    }
-    
-    // Send initial data to the new client after a short delay
-    try {
-      await sendLatestBiomarkerData(ws);
-    } catch (error) {
-      console.error('Error sending initial data:', error);
-    }
-  }, 200); // Short delay to ensure connection is established
-  
-  // Set up ping interval to keep connection alive
-  const pingInterval = setInterval(() => {
-    if (!ws.isAlive) {
-      console.log(`Client ${ws.id} failed to respond to ping, terminating connection`);
-      clearInterval(pingInterval);
-      connectedClients.delete(ws);
-      return ws.terminate();
-    }
-    
-    if (ws.readyState === 1) { // WebSocket.OPEN
-      try {
-        // Set isAlive to false, will be set to true when pong is received
-        ws.isAlive = false;
-        ws.send(JSON.stringify({ 
-          type: 'ping', 
-          timestamp: new Date().toISOString(),
-          clientId: ws.id
-        }));
-      } catch (error) {
-        console.error(`Error sending ping to client ${ws.id}:`, error);
-        clearInterval(pingInterval);
-        connectedClients.delete(ws);
-        ws.terminate();
-      }
-    } else {
-      clearInterval(pingInterval);
-      connectedClients.delete(ws);
-    }
-  }, 15000); // Send ping every 15 seconds
-  
-  ws.on('message', (message) => {
-    console.log(`Received message from client ${ws.id}:`, message.toString());
-    
-    // Parse message to check for pong responses
-    try {
-      const data = JSON.parse(message.toString());
-      if (data.type === 'pong') {
-        ws.isAlive = true; // Mark the connection as alive when pong is received
-      }
-    } catch (error) {
-      console.error(`Error parsing client ${ws.id} message:`, error);
-    }
-    
-    // Echo back to confirm receipt
-    if (ws.readyState === 1) {
-      try {
-        ws.send(JSON.stringify({ 
-          type: 'echo', 
-          received: message.toString(),
-          timestamp: new Date().toISOString()
-        }));
-      } catch (error) {
-        console.error(`Error sending echo response to client ${ws.id}:`, error);
-      }
-    }
-  });
-  
-  ws.on('close', () => {
-    console.log(`WebSocket client ${ws.id} disconnected`);
-    connectedClients.delete(ws);
-    clearInterval(pingInterval);
-  });
-  
-  ws.on('error', (error) => {
-    console.error(`WebSocket error for client ${ws.id}:`, error);
-    connectedClients.delete(ws);
-    clearInterval(pingInterval);
-    try {
-      ws.terminate();
-    } catch (e) {
-      // Ignore errors during termination
-    }
-  });
-});
-
-// Function to broadcast biomarker data to all connected clients
-function broadcastBiomarkerData(data) {
-  // Make sure we're using the correct biomarker field names expected by the frontend
-  const formattedData = {
-    timestamp: data.timestamp || new Date().toISOString(),
-    cortisol_base: data.cortisol_base,
-    lactate_base: data.lactate_base,
-    uric_acid_base: data.uric_acid_base,
-    crp_base: data.crp_base,
-    il6_base: data.il6_base,
-    body_temp_base: data.body_temp_base,
-    heart_rate_base: data.heart_rate_base,
-    blood_oxygen_base: data.blood_oxygen_base
-  };
-  
-  const message = JSON.stringify(formattedData);
-  
-  // Only attempt broadcast if we have active clients
-  if (connectedClients.size === 0) {
-    console.log('No WebSocket clients connected for broadcast');
-    return;
-  }
-  
-  console.log(`Broadcasting data to ${connectedClients.size} WebSocket clients`);
-  
-  let sentCount = 0;
-  let disconnectedClients = [];
-  
-  for (const client of connectedClients) {
-    // Check if the client socket is really open
-    if (client.readyState === 1) { // WebSocket.OPEN = 1
-      try {
-        client.send(message);
-        sentCount++;
-      } catch (error) {
-        console.error(`Error sending to WebSocket client ${client.id || 'unknown'}:`, error);
-        // Mark this client for cleanup
-        disconnectedClients.push(client);
-      }
-    } else {
-      // Any state other than OPEN means we should remove this client
-      disconnectedClients.push(client);
-      console.log(`Found stale client connection in state ${client.readyState}, marking for cleanup`);
-    }
-  }
-  
-  // Cleanup any disconnected clients
-  if (disconnectedClients.length > 0) {
-    for (const client of disconnectedClients) {
-      connectedClients.delete(client);
-      try {
-        client.terminate();
-      } catch (e) {
-        // Ignore errors during termination
-      }
-    }
-    console.log(`Cleaned up ${disconnectedClients.length} disconnected WebSocket clients`);
-  }
-  
-  console.log(`Successfully sent data to ${sentCount} clients`);
-}
-
-// Function to send latest biomarker data to a specific client
-async function sendLatestBiomarkerData(ws) {
-  try {
-    // Check if the WebSocket is still open
-    if (ws.readyState !== 1) { // WebSocket.OPEN = 1
-      console.warn('Cannot send initial data - WebSocket not open');
-      return;
-    }
-    
-    // Get the most recent readings from the database (last 10 to ensure we have data)
-    const latestReadings = db.prepare(`
-      SELECT * FROM healthReadings 
-      ORDER BY timestamp DESC
-      LIMIT 10
-    `).all();
-    
-    if (latestReadings && latestReadings.length > 0) {
-      // Process each reading with a short delay between them to avoid overwhelming the client
-      // First send the oldest reading to ensure proper time-order display
-      const reversedReadings = latestReadings.reverse();
-      
-      for (let i = 0; i < reversedReadings.length; i++) {
-        const reading = reversedReadings[i];
-        
-        // Format data the same way as the broadcast function
-        const formattedData = {
-          timestamp: reading.timestamp || new Date().toISOString(),
-          cortisol_base: reading.cortisol_base,
-          lactate_base: reading.lactate_base,
-          uric_acid_base: reading.uric_acid_base,
-          crp_base: reading.crp_base,
-          il6_base: reading.il6_base,
-          body_temp_base: reading.body_temp_base,
-          heart_rate_base: reading.heart_rate_base,
-          blood_oxygen_base: reading.blood_oxygen_base
-        };
-        
-        // Check if the WebSocket is still open before sending
-        if (ws.readyState === 1) { // WebSocket.OPEN = 1
-          try {
-            ws.send(JSON.stringify(formattedData));
-          } catch (error) {
-            console.error('Error in WebSocket send operation:', error);
-            break;
-          }
-          
-          // Add a small delay between messages if not the last message
-          // This helps the client process them properly
-          if (i < reversedReadings.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-        } else {
-          break; // Stop if the connection is closed
-        }
-      }
-      
-      console.log(`Successfully sent initial data (${reversedReadings.length} readings) to new client`);
-    } else {
-      console.warn('No biomarker readings found to send to new client');
-    }
-  } catch (error) {
-    console.error('Error sending latest biomarker data:', error);
-  }
-}
-
-// Endpoint to trigger a data broadcast to all connected clients
-app.post('/broadcast-biomarker', (req, res) => {
-  try {
-    const data = req.body;
-    broadcastBiomarkerData(data);
-    res.json({ success: true, clientCount: connectedClients.size });
-  } catch (error) {
-    console.error('Error broadcasting data:', error);
-    res.status(500).json({ error: 'Failed to broadcast data' });
-  }
-});
-
-// Handle /readings POST requests directly with our own endpoint
-// This ensures WebSocket broadcasting works properly
-app.post('/readings', (req, res) => {
-  try {
-    // Extract data from request body
-    const { 
-      cortisol_base, 
-      lactate_base, 
-      uric_acid_base, 
-      crp_base, 
-      il6_base, 
-      body_temp_base, 
-      heart_rate_base, 
-      blood_oxygen_base 
-    } = req.body;
-    
-    console.log('Received new biomarker reading:', req.body);
-    
-    // Insert data into database
-    const result = statements.readings.insert.run(
-      cortisol_base || null, 
-      lactate_base || null, 
-      uric_acid_base || null, 
-      crp_base || null, 
-      il6_base || null,
-      body_temp_base || null,
-      heart_rate_base || null,
-      blood_oxygen_base || null
-    );
-    
-    // Broadcast data to all connected WebSocket clients
-    broadcastBiomarkerData(req.body);
-    
-    // Return success response
-    res.json({ 
-      success: true, 
-      id: result.lastInsertRowid,
-      message: "Health reading added successfully" 
-    });
-  } catch (error) {
-    console.error("Error processing biomarker reading:", error);
-    res.status(500).json({ error: "Failed to store health reading" });
-  }
-});
-
 // Start the server
-server.listen(3000, () => {
+app.listen(3000, () => {
   console.log("Server started successfully on port 3000");
-  console.log("WebSocket server enabled for real-time data streaming");
 });
