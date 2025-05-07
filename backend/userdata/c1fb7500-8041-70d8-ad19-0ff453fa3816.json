@@ -1,0 +1,17 @@
+{
+  "age": 22,
+  "gender": "male",
+  "language": "spanish",
+  "height": 180,
+  "weight": 100,
+  "preExistingConditions": [
+    "anxiety"
+  ],
+  "alcohol": "occasional",
+  "smoking": "none",
+  "exerciseLevel": "light",
+  "exerciseFrequency": 2,
+  "sleepHours": 5,
+  "stressLevel": "moderate",
+  "dietType": "omnivore"
+}
