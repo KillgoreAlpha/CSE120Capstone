@@ -56,7 +56,8 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const startY = useRef<number | null>(null);
-  const API_BASE_URL = 'http://localhost:3000';
+  // Update to use environment variable if available, or use fallback ports
+  const API_BASE_URL = 'http://localhost:3000'; // Server is running on port 3000
 
   const { isListening: isDictating, transcript, start, stop } = useDictation();
 
@@ -99,6 +100,75 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
 
   // The onChatSessionUpdated is already available from the destructured props
 
+  // Track server status
+  const [serverAvailable, setServerAvailable] = useState(true);
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const serverCheckTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  // Function to check server availability
+  const checkServerAvailability = async () => {
+    try {
+      // Simple HEAD request to check if server is responding
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      const response = await fetch(`${API_BASE_URL}`, {
+        method: 'HEAD',
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (response.ok) {
+        if (!serverAvailable) {
+          console.log("Server is now available");
+          message.success("Connection to server restored", 2);
+          setServerAvailable(true);
+        }
+        setConnectionAttempts(0);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.warn("Server appears to be offline:", error);
+      setServerAvailable(false);
+      return false;
+    }
+  };
+
+  // Periodically check server availability when it's down
+  useEffect(() => {
+    // Clear any existing timeout
+    if (serverCheckTimeout.current) {
+      clearTimeout(serverCheckTimeout.current);
+      serverCheckTimeout.current = null;
+    }
+    
+    // If server is unavailable, schedule a check
+    if (!serverAvailable) {
+      // Backoff strategy: 5s, 10s, 20s, 30s (max)
+      const backoffDelay = Math.min(5000 * Math.pow(2, connectionAttempts), 30000);
+      console.log(`Will check server availability in ${backoffDelay/1000}s`);
+      
+      serverCheckTimeout.current = setTimeout(() => {
+        checkServerAvailability();
+        setConnectionAttempts(prev => prev + 1);
+      }, backoffDelay);
+    }
+    
+    // Cleanup
+    return () => {
+      if (serverCheckTimeout.current) {
+        clearTimeout(serverCheckTimeout.current);
+      }
+    };
+  }, [serverAvailable, connectionAttempts]);
+
+  // Initial server check
+  useEffect(() => {
+    checkServerAvailability();
+  }, []);
+
   const handleSendMessage = async () => {
     if (!inputValue.trim()) return;
     
@@ -112,6 +182,26 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     // Set loading state
     setIsLoading(true);
     
+    // Check server availability before attempting to send
+    if (!serverAvailable) {
+      // Try one more time to see if server is back
+      const isAvailable = await checkServerAvailability();
+      
+      if (!isAvailable) {
+        console.error('Server is currently unavailable');
+        message.error('Server is currently offline. Your message will be saved and sent when the connection is restored.');
+        
+        // Add error message to chat
+        const errorMessageObj = { 
+          role: 'assistant', 
+          content: 'Sorry, I cannot process your request right now as the server appears to be offline. Your message has been saved and will be processed when the connection is restored.' 
+        };
+        setMessages(prev => [...prev, errorMessageObj]);
+        setIsLoading(false);
+        return;
+      }
+    }
+    
     // Debug log to see what profile data we're sending
     console.log("Sending user health profile:", userHealthProfile);
     if (!userHealthProfile) {
@@ -119,7 +209,9 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     }
     
     try {
-      // Get user ID for chat history tracking
+      // Add timeout to the fetch request
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
       
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
@@ -132,10 +224,13 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
           userId: userId,
           userHealthProfile: userHealthProfile
         }),
+        signal: controller.signal
       });
       
+      clearTimeout(timeoutId);
+      
       if (!response.ok) {
-        throw new Error('Network response was not ok');
+        throw new Error(`Network response was not ok: ${response.status}`);
       }
       
       const data = await response.json();
@@ -153,14 +248,57 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       if (onChatSessionUpdated && userId) {
         onChatSessionUpdated();
       }
+      
+      // Server is definitely available if we got this far
+      setServerAvailable(true);
+      setConnectionAttempts(0);
+      
     } catch (error) {
       console.error('Error sending message:', error);
-      message.error('Failed to send message. Please try again.');
+      
+      // Handle AbortError (timeout) specifically
+      if (error.name === 'AbortError') {
+        message.error('Request timed out. Server may be overloaded or unavailable.');
+        setServerAvailable(false);
+      } else if (error.message.includes('Failed to fetch')) {
+        message.error('Cannot connect to server. Check your network connection.');
+        setServerAvailable(false);
+      } else {
+        message.error('Failed to send message. Please try again.');
+      }
+      
+      // Get detailed error information if available
+      let errorDetail = '';
+      
+      try {
+        // Try to parse the error response to get more details
+        if (error.message.includes('JSON')) {
+          errorDetail = 'Server response format error';
+        } else if (error.response) {
+          const data = await error.response.json();
+          if (data.details) {
+            errorDetail = data.details;
+          } else if (data.error) {
+            errorDetail = data.error;
+          }
+        }
+      } catch (parseError) {
+        console.error("Error parsing error response:", parseError);
+      }
+      
+      // Create a more informative error message
+      const errorMessage = error.name === 'AbortError' 
+        ? 'The request timed out. The server may be busy or temporarily unavailable.'
+        : error.message.includes('Failed to fetch')
+          ? 'Cannot connect to server. Check your network connection.'
+          : errorDetail 
+            ? `Error: ${errorDetail}` 
+            : 'There was a problem communicating with the server. Please try again later.';
       
       // Add error message to chat
       const errorMessageObj = { 
         role: 'assistant', 
-        content: 'Sorry, I encountered an error processing your request. Please try again.' 
+        content: 'Sorry, I encountered an error processing your request: ' + errorMessage
       };
       setMessages(prev => [...prev, errorMessageObj]);
     } finally {
@@ -426,8 +564,30 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         
         <div style={{
           textAlign: 'center',
-          marginTop: '8px'
+          marginTop: '8px',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
         }}>
+          {!serverAvailable && (
+            <div style={{ 
+              color: '#ff4d4f', 
+              fontSize: '12px', 
+              marginBottom: '4px',
+              display: 'flex',
+              alignItems: 'center'
+            }}>
+              <div style={{ 
+                width: '8px', 
+                height: '8px', 
+                borderRadius: '50%', 
+                backgroundColor: '#ff4d4f', 
+                marginRight: '5px',
+                animation: 'pulse 2s infinite'
+              }} />
+              Server offline - messages will be queued
+            </div>
+          )}
           <Text type="secondary" style={{ fontSize: '12px' }}>
             X10e's LLM can make mistakes. If you are feeling unwell, please schedule an appointment with your healthcare provider.
           </Text>

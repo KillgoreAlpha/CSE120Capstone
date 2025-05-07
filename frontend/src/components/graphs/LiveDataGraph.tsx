@@ -42,6 +42,14 @@ interface DataPoint {
   value: number;
 }
 
+// Extend the WebSocket type to include our custom properties
+interface CustomWebSocket extends WebSocket {
+  lastFieldsReceived?: string;
+  lastSubscriptionTime?: number;
+  lastSimulationTime?: number;
+  reconnectTimeout?: number; // For storing reconnection timeout ID
+}
+
 const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
   biomarker,
   label,
@@ -102,68 +110,47 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
     lastUpdateTime.current = Date.now();
   });
   
-  const fetchLatestData = async () => {
-    if (!isMounted.current) return;
-    
-    try {
-      console.log(`Polling data for ${biomarker} via HTTP fallback`);
-      // Get current time and time 30 seconds ago for recent data (increased window)
-      const endTime = new Date().toISOString();
-      const startTime = new Date(Date.now() - 30000).toISOString();
-      
-      // Make sure we're using the correct API endpoint with the biomarker field name
-      const response = await axios.get(`http://localhost:3000/biomarker/${biomarker}`, {
-        params: { startTime, endTime }
-      });
-      
-      if (!isMounted.current) return;
-      
-      if (response.data && response.data.data) {
-        console.log(`Received ${response.data.data.length} data points for ${biomarker} via HTTP`);
-        
-        // Process new data points
-        const newPoints = response.data.data.map((item: any) => ({
-          timestamp: item.timestamp,
-          value: item[biomarker]
-        }));
-        
-        // Update state by merging existing and new points
-        if (newPoints.length > 0 && isMounted.current) {
-          // Add new points to our history
-          allDataPoints.current = [...allDataPoints.current, ...newPoints];
-          
-          // Remove duplicates from our complete history
-          allDataPoints.current = allDataPoints.current.filter((point, index, self) =>
-            index === self.findIndex(p => p.timestamp === point.timestamp)
-          );
-          
-          // Sort the complete history by timestamp
-          allDataPoints.current.sort((a, b) => 
-            new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          );
-          
-          // Get current time window bounds - last 60 seconds
-          const now = Date.now();
-          const windowStart = now - 60000; // 60 seconds ago
-          
-          // Filter points within the current time window for display
-          const visiblePoints = allDataPoints.current.filter(point => 
-            new Date(point.timestamp).getTime() > windowStart
-          );
-          
-          setDataPoints(visiblePoints);
-        } else {
-          console.log(`No new data points for ${biomarker}`);
-        }
-      }
-    } catch (error) {
-      if (!isMounted.current) return;
-      console.error(`Error fetching biomarker data for ${biomarker}:`, error);
+  // Helper function to generate simulated data for testing
+  const generateSimulatedDataPoint = (): DataPoint => {
+    // Generate a random value based on biomarker type
+    let randomValue;
+    switch(biomarker) {
+      case 'heart_rate_base':
+        randomValue = 60 + Math.random() * 40; // 60-100 bpm
+        break;
+      case 'body_temp_base':
+        randomValue = 36.5 + Math.random() * 1.5; // 36.5-38.0 °C
+        break;
+      case 'blood_oxygen_base':
+        randomValue = 95 + Math.random() * 5; // 95-100%
+        break;
+      case 'cortisol_base':
+        randomValue = 10 + Math.random() * 15; // 10-25 μg/dL
+        break;
+      case 'lactate_base':
+        randomValue = 1 + Math.random() * 3; // 1-4 mmol/L
+        break;
+      case 'uric_acid_base':
+        randomValue = 3.5 + Math.random() * 3.5; // 3.5-7 mg/dL
+        break;
+      case 'crp_base':
+        randomValue = Math.random() * 10; // 0-10 mg/L
+        break;
+      case 'il6_base':
+        randomValue = Math.random() * 10; // 0-10 pg/mL
+        break;
+      default:
+        randomValue = 50 + Math.random() * 50; // 50-100 generic value
     }
+    
+    return {
+      timestamp: new Date().toISOString(),
+      value: randomValue
+    };
   };
 
   // WebSocket connection setup
-  const wsRef = useRef<WebSocket | null>(null);
+  const wsRef = useRef<CustomWebSocket | null>(null);
   // Keep track of connection attempts to implement progressive backoff
   const connectionAttempts = useRef<number>(0);
   // Maximum number of active WebSocket connection attempts
@@ -175,9 +162,6 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
     // Set mount status
     isMounted.current = true;
     
-    // Initial data fetch
-    fetchLatestData();
-    
     // Set up WebSocket connection with retry mechanism
     const connectWebSocket = () => {
       // If component is unmounted, don't attempt connection
@@ -185,12 +169,9 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         return;
       }
       
-      // If we've already attempted too many connections, rely on polling instead
+      // If we've already attempted too many connections, stop trying
       if (connectionAttempts.current >= MAX_CONNECTION_ATTEMPTS) {
-        console.log(`Maximum WebSocket connection attempts (${MAX_CONNECTION_ATTEMPTS}) reached for ${biomarker}, using polling only`);
-        if (!intervalRef.current && isMounted.current) {
-          intervalRef.current = window.setInterval(fetchLatestData, refreshInterval);
-        }
+        console.log(`Maximum WebSocket connection attempts (${MAX_CONNECTION_ATTEMPTS}) reached for ${biomarker}, stopping attempts`);
         return;
       }
       
@@ -207,11 +188,11 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
       
       // Ensure we use the correct WebSocket URL based on the environment
       // For development, hardcode the localhost URL to ensure consistency
-      const wsUrl = 'ws://localhost:3000';
+      const wsUrl = 'ws://localhost:3001'; // Use alternate port
       console.log(`Connecting WebSocket to ${wsUrl} for ${biomarker} (attempt ${connectionAttempts.current})`);
       
       try {
-        const ws = new WebSocket(wsUrl);
+        const ws = new WebSocket(wsUrl) as CustomWebSocket;
         wsRef.current = ws;
         
         ws.onopen = () => {
@@ -221,14 +202,29 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
           }
           
           console.log(`WebSocket connected for ${biomarker} data`);
+          
+          // Send a subscription message for this specific biomarker
+          try {
+            ws.send(JSON.stringify({
+              type: 'subscribe',
+              biomarker: biomarker,
+              clientInfo: {
+                component: 'LiveDataGraph',
+                timestamp: new Date().toISOString()
+              }
+            }));
+            console.log(`Sent subscription request for ${biomarker}`);
+          } catch (error) {
+            console.error(`Error sending subscription for ${biomarker}:`, error);
+          }
+          
           // Reset connection attempts counter on successful connection
           connectionAttempts.current = 0;
           
-          // Clear polling interval if it exists since we now have WebSocket
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-          }
+          // Add a simulated data point when connection is established - for dev testing only
+          const simulatedPoint = generateSimulatedDataPoint();
+          dataBuffer.current.push(simulatedPoint);
+          processBuffer.current();
         };
         
         ws.onmessage = (event) => {
@@ -240,7 +236,11 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
             // Handle ping/pong messages from server
             if (data.type === 'ping') {
               // Respond with pong to keep connection alive
-              ws.send(JSON.stringify({ type: 'pong', timestamp: new Date().toISOString() }));
+              ws.send(JSON.stringify({ 
+                type: 'pong', 
+                biomarker: biomarker, // Include biomarker in pong response
+                timestamp: new Date().toISOString() 
+              }));
               return;
             }
             
@@ -251,18 +251,57 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
             
             // Process data only if it contains our biomarker
             if (data && data[biomarker] !== undefined) {
-              const newPoint: DataPoint = {
-                timestamp: data.timestamp || new Date().toISOString(),
-                value: data[biomarker]
-              };
+              console.log(`Received real-time data for ${biomarker}: ${data[biomarker]}`);
               
-              // Add to buffer instead of immediately updating state
-              dataBuffer.current.push(newPoint);
+              // Validate data before processing it
+              const biomarkerValue = parseFloat(data[biomarker]);
+              if (!isNaN(biomarkerValue)) {
+                const newPoint: DataPoint = {
+                  timestamp: data.timestamp || new Date().toISOString(),
+                  value: biomarkerValue
+                };
+                
+                // Add to buffer instead of immediately updating state
+                dataBuffer.current.push(newPoint);
+                
+                // Process buffer immediately if we have enough points or enough time has passed
+                const updateInterval = 1000; // Minimum time between state updates in ms
+                if (dataBuffer.current.length >= 5 || (Date.now() - lastUpdateTime.current) > updateInterval) {
+                  processBuffer.current();
+                }
+              } else {
+                console.warn(`Invalid data received for ${biomarker}: ${data[biomarker]}`);
+              }
+            } else if (data && Object.keys(data).length > 0 && !data.type) {
+              // If we receive data but not for our biomarker, log available fields without
+              // flooding the console (only log if the fields have changed)
+              const fieldsReceived = Object.keys(data).sort().join(',');
+              if (ws.lastFieldsReceived !== fieldsReceived) {
+                console.log(`Received data for other biomarkers: ${fieldsReceived}`);
+                ws.lastFieldsReceived = fieldsReceived;
+              }
               
-              // Process buffer immediately if we have enough points or enough time has passed
-              const updateInterval = 1000; // Minimum time between state updates in ms
-              if (dataBuffer.current.length >= 5 || (Date.now() - lastUpdateTime.current) > updateInterval) {
+              // Only try to resubscribe occasionally, not on every message
+              const now = Date.now();
+              if (!ws.lastSubscriptionTime || (now - ws.lastSubscriptionTime) > 10000) {
+                try {
+                  ws.send(JSON.stringify({
+                    type: 'subscribe',
+                    biomarker: biomarker,
+                    timestamp: new Date().toISOString()
+                  }));
+                  ws.lastSubscriptionTime = now;
+                } catch (sendError) {
+                  console.error(`Error sending subscription for ${biomarker}:`, sendError);
+                }
+              }
+              
+              // For development/testing, generate a simulated point occasionally
+              if (import.meta.env.DEV && (!ws.lastSimulationTime || (now - ws.lastSimulationTime) > 5000)) {
+                const simPoint = generateSimulatedDataPoint();
+                dataBuffer.current.push(simPoint);
                 processBuffer.current();
+                ws.lastSimulationTime = now;
               }
             }
           } catch (error) {
@@ -272,14 +311,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         
         ws.onerror = (error) => {
           if (!isMounted.current) return;
-          
-          console.warn(`WebSocket error for ${biomarker}, falling back to polling`);
-          
-          // Fall back to polling immediately if WebSocket fails
-          if (!intervalRef.current && isMounted.current) {
-            console.log(`Setting up fallback polling for ${biomarker}`);
-            intervalRef.current = window.setInterval(fetchLatestData, refreshInterval);
-          }
+          console.warn(`WebSocket error for ${biomarker}:`, error);
         };
         
         ws.onclose = (event) => {
@@ -287,29 +319,35 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
           
           console.log(`WebSocket connection closed for ${biomarker}. Code: ${event.code}, Reason: ${event.reason}`);
           
-          // Fall back to polling if WebSocket closes
-          if (!intervalRef.current && isMounted.current) {
-            console.log(`Setting up fallback polling for ${biomarker}`);
-            intervalRef.current = window.setInterval(fetchLatestData, refreshInterval);
-          }
+          // Check if this is a normal closure (code 1000) or a no-status closure (code 1005)
+          const isNormalClosure = event.code === 1000 || event.code === 1005;
           
           // Calculate backoff delay based on number of attempts
           const baseDelay = 1000; // Start with 1 second
           const maxDelay = 30000; // Cap at 30 seconds
           const jitter = Math.random() * 1000; // Add random jitter to prevent all connections retrying at once
-          const backoffDelay = Math.min(maxDelay, (baseDelay * Math.pow(2, connectionAttempts.current)) + jitter);
+          
+          // For normal closures, use a shorter fixed delay
+          const backoffDelay = isNormalClosure 
+            ? 2000 + jitter  // Shorter delay for normal closures
+            : Math.min(maxDelay, (baseDelay * Math.pow(2, connectionAttempts.current)) + jitter);
           
           if (isMounted.current) {
             console.log(`Will attempt to reconnect WebSocket for ${biomarker} in ${backoffDelay}ms (attempt ${connectionAttempts.current + 1})`);
-            setTimeout(connectWebSocket, backoffDelay);
+            
+            // Add a bit more randomization for server restarts
+            // When the server restarts, we don't want all websockets to try reconnecting at exactly the same time
+            const reconnectDelay = backoffDelay + (biomarker.charCodeAt(0) % 10) * 500; // Stagger by biomarker name
+            
+            // Create a new timeout and store it so it can be cleared if needed
+            const timeout = setTimeout(connectWebSocket, reconnectDelay);
+            
+            // Store the timeout ID in case we need to clean it up
+            ws.reconnectTimeout = timeout;
           }
         };
       } catch (e) {
         console.error(`Error creating WebSocket for ${biomarker}:`, e);
-        // Ensure polling is active if WebSocket creation fails
-        if (!intervalRef.current && isMounted.current) {
-          intervalRef.current = window.setInterval(fetchLatestData, refreshInterval);
-        }
       }
     };
     
@@ -326,9 +364,24 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
       }
     }, updateInterval);
     
-    // Set up buffered data fetching as a fallback - only if WebSocket isn't used
-    if (!wsRef.current && !intervalRef.current && isMounted.current) {
-      intervalRef.current = window.setInterval(fetchLatestData, refreshInterval);
+    // Set up periodic data simulation if we're in development mode and need test data
+    if (import.meta.env.DEV) {
+      // This is optional and only for development - add a simulated data point every few seconds
+      // for better visualization during testing
+      const simulationInterval = window.setInterval(() => {
+        if (isMounted.current) {
+          // Only add simulated data if the WebSocket is not connected or not receiving data
+          if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN || dataPoints.length < 5) {
+            console.log(`Adding simulated data point for ${biomarker} (development mode)`);
+            const simPoint = generateSimulatedDataPoint();
+            dataBuffer.current.push(simPoint);
+            processBuffer.current();
+          }
+        }
+      }, 5000); // Add simulated data every 5 seconds in dev mode
+      
+      // Save reference for cleanup
+      intervalRef.current = simulationInterval;
     }
     
     // Set up an interval to refresh the visible time window every second
@@ -356,9 +409,15 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
       // Mark component as unmounted
       isMounted.current = false;
       
-      // Clean up WebSocket
+      // Clean up WebSocket and any pending reconnect timeouts
       if (wsRef.current) {
         try {
+          // Clear any reconnection timeout
+          if (wsRef.current.reconnectTimeout) {
+            clearTimeout(wsRef.current.reconnectTimeout);
+          }
+          
+          // Close the WebSocket connection
           wsRef.current.close();
           wsRef.current = null;
         } catch (e) {

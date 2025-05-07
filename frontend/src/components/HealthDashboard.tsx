@@ -20,6 +20,7 @@ import {
   LineChartOutlined
 } from '@ant-design/icons';
 import { useUserHealthProfile } from '../hooks/useUserHealthProfile';
+import LiveDataGraph from './graphs/LiveDataGraph';
 
 const { Text, Title } = Typography;
 const { TabPane } = Tabs;
@@ -228,7 +229,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
       setLoading(true);
       try {
         // Fetch readings from the backend API
-        const response = await fetch('http://localhost:3000/readings');
+        const response = await fetch('http://localhost:3001/readings');
         const data = await response.json();
 
         if (data && data.readings && data.readings.length > 0) {
@@ -450,15 +451,23 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
           </Card>
         </div>
         
-        <ResponsiveContainer width="100%" height={200}>
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="time" />
-            <YAxis />
-            <Tooltip />
-            <Line type="monotone" dataKey="value" stroke="#8884d8" />
-          </LineChart>
-        </ResponsiveContainer>
+        <div style={{ 
+          height: '250px', 
+          width: '100%', 
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '10px',
+          marginTop: '10px'
+        }}>
+          <LiveDataGraph 
+            biomarker={biomarker} 
+            label={name} 
+            color={COLORS[biomarker.replace('_base', '') as keyof typeof COLORS] || "#8884d8"}
+            showPoints={true}
+            refreshInterval={1000}
+          />
+        </div>
       </Modal>
     );
   };
@@ -889,44 +898,59 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'space-between', paddingBottom: '1rem' }}>
               <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 300px' }}>
                 <Text strong>Heart Rate (BPM)</Text>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={prepareVitalSignsData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis label={{ value: 'BPM', angle: -90, position: 'insideLeft' }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="heartRate" stroke={COLORS.heart_rate} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div style={{ 
+                  height: '250px', 
+                  marginTop: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <LiveDataGraph 
+                    biomarker="heart_rate_base" 
+                    label="Heart Rate (BPM)" 
+                    color={COLORS.heart_rate}
+                    showPoints={true}
+                    refreshInterval={1000}
+                  />
+                </div>
               </Card>
 
               <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 300px' }}>
                 <Text strong>Body Temperature (°C)</Text>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={prepareVitalSignsData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis label={{ value: '°C', angle: -90, position: 'insideLeft' }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="bodyTemp" stroke={COLORS.body_temp} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div style={{ 
+                  height: '250px', 
+                  marginTop: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <LiveDataGraph 
+                    biomarker="body_temp_base" 
+                    label="Body Temperature (°C)" 
+                    color={COLORS.body_temp}
+                    showPoints={true}
+                    refreshInterval={1000}
+                  />
+                </div>
               </Card>
 
               <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 300px' }}>
                 <Text strong>Blood Oxygen (%)</Text>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart data={prepareVitalSignsData()} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis domain={[90, 100]} label={{ value: '%', angle: -90, position: 'insideLeft' }} tickFormatter={(val) => `${val}%`} />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="bloodOxygen" stroke={COLORS.blood_oxygen} />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div style={{ 
+                  height: '250px', 
+                  marginTop: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}>
+                  <LiveDataGraph 
+                    biomarker="blood_oxygen_base" 
+                    label="Blood Oxygen (%)" 
+                    color={COLORS.blood_oxygen}
+                    showPoints={true}
+                    refreshInterval={1000}
+                  />
+                </div>
               </Card>
             </div>
           </TabPane>
@@ -936,48 +960,150 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
               {loading ? (
                 <Skeleton active paragraph={{ rows: 6 }} />
               ) : (
-                <ResponsiveContainer width="100%" height={300}>
-                  <LineChart
-                    data={prepareBiomarkersData()}
-                    margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="cortisol"
-                      name="Cortisol"
-                      stroke={COLORS.cortisol}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="lactate"
-                      name="Lactate"
-                      stroke={COLORS.lactate}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="uricAcid"
-                      name="Uric Acid"
-                      stroke={COLORS.uric_acid}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="crp"
-                      name="CRP"
-                      stroke={COLORS.crp}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="il6"
-                      name="IL-6"
-                      stroke={COLORS.il6}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <Tabs defaultActiveKey="live" style={{ marginTop: '16px' }}>
+                  <TabPane tab="Live Data" key="live">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', justifyContent: 'space-between', marginTop: '16px' }}>
+                      <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
+                        <Text strong>Cortisol (nmol/L)</Text>
+                        <div style={{ 
+                          height: '250px', 
+                          marginTop: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <LiveDataGraph 
+                            biomarker="cortisol_base" 
+                            label="Cortisol (nmol/L)" 
+                            color={COLORS.cortisol}
+                            showPoints={true}
+                            refreshInterval={1000}
+                          />
+                        </div>
+                      </Card>
+                      
+                      <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
+                        <Text strong>Lactate (mmol/L)</Text>
+                        <div style={{ 
+                          height: '250px', 
+                          marginTop: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <LiveDataGraph 
+                            biomarker="lactate_base" 
+                            label="Lactate (mmol/L)" 
+                            color={COLORS.lactate}
+                            showPoints={true}
+                            refreshInterval={1000}
+                          />
+                        </div>
+                      </Card>
+                      
+                      <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
+                        <Text strong>Uric Acid (mg/dL)</Text>
+                        <div style={{ 
+                          height: '250px', 
+                          marginTop: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <LiveDataGraph 
+                            biomarker="uric_acid_base" 
+                            label="Uric Acid (mg/dL)" 
+                            color={COLORS.uric_acid}
+                            showPoints={true}
+                            refreshInterval={1000}
+                          />
+                        </div>
+                      </Card>
+                      
+                      <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
+                        <Text strong>CRP (mg/L)</Text>
+                        <div style={{ 
+                          height: '250px', 
+                          marginTop: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <LiveDataGraph 
+                            biomarker="crp_base" 
+                            label="CRP (mg/L)" 
+                            color={COLORS.crp}
+                            showPoints={true}
+                            refreshInterval={1000}
+                          />
+                        </div>
+                      </Card>
+                      
+                      <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
+                        <Text strong>IL-6 (pg/mL)</Text>
+                        <div style={{ 
+                          height: '250px', 
+                          marginTop: '16px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <LiveDataGraph 
+                            biomarker="il6_base" 
+                            label="IL-6 (pg/mL)" 
+                            color={COLORS.il6}
+                            showPoints={true}
+                            refreshInterval={1000}
+                          />
+                        </div>
+                      </Card>
+                    </div>
+                  </TabPane>
+                  <TabPane tab="Historical Data" key="historical">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart
+                        data={prepareBiomarkersData()}
+                        margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                      >
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="cortisol"
+                          name="Cortisol"
+                          stroke={COLORS.cortisol}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="lactate"
+                          name="Lactate"
+                          stroke={COLORS.lactate}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="uricAcid"
+                          name="Uric Acid"
+                          stroke={COLORS.uric_acid}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="crp"
+                          name="CRP"
+                          stroke={COLORS.crp}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="il6"
+                          name="IL-6"
+                          stroke={COLORS.il6}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </TabPane>
+                </Tabs>
               )}
             </Card>
           </TabPane>

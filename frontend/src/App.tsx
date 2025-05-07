@@ -14,7 +14,7 @@ import {
   Empty,
   Drawer,
   Menu,
-  Divider,,
+  Divider,
   Tabs
 } from 'antd';
 import {
@@ -39,11 +39,11 @@ import HealthDashboard from './components/HealthDashboard';
 import ChatPanel from './components/ChatPanel';
 import UserHealthProfileForm from './components/UserHealthProfileForm';
 import ResearchPapers from './components/ResearchPapers';
+import LiveDataDashboard from './components/graphs/LiveDataDashboard';
 import { useUserHealthProfile } from './hooks/useUserHealthProfile';
 
 // Import responsive styles
 import './responsive.css';
-import LiveDataDashboard from './components/graphs/LiveDataDashboard';
 
 const { Header, Sider, Content } = Layout;
 const { Title, Text, Paragraph } = Typography;
@@ -73,7 +73,7 @@ const App = () => {
   const [isMobile, setIsMobile] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [activeSection, setActiveSection] = useState<'dashboard' | 'research'>('dashboard');
+  const [activeSection, setActiveSection] = useState<'dashboard' | 'research' | 'live'>('dashboard');
   const auth = useAuth();
   
   // Set up responsive behavior
@@ -168,7 +168,7 @@ const App = () => {
         
         // Fallback to server-side check if group information isn't available in token
         const userId = getUserId(auth.user);
-        const isDev = process.env.NODE_ENV === 'development';
+        const isDev = import.meta.env.MODE === 'development';
         const response = await fetch(`${API_BASE_URL}/research/check-admin/${userId}${isDev ? '?testAdmin=true' : ''}`);
         
         if (!response.ok) {
@@ -461,6 +461,16 @@ const App = () => {
               }
             },
             {
+              key: 'live-data',
+              icon: <LineChartOutlined />,
+              label: 'Live Data',
+              onClick: () => {
+                setMobileMenuOpen(false);
+                setChatExpanded(false);
+                setActiveSection('live');
+              }
+            },
+            {
               key: 'new-chat',
               icon: <PlusOutlined />,
               label: 'New Chat',
@@ -649,6 +659,19 @@ const App = () => {
                     Dashboard
                   </Button>
                   
+                  <Button
+                    type={activeSection === 'live' ? 'default' : 'text'}
+                    block
+                    icon={<LineChartOutlined />}
+                    onClick={() => {
+                      setActiveSection('live');
+                      setChatExpanded(false);
+                    }}
+                    style={{ textAlign: 'left', marginBottom: '8px' }}
+                  >
+                    Live Data
+                  </Button>
+                  
                   {isAdmin && (
                     <Button
                       type={activeSection === 'research' ? 'default' : 'text'}
@@ -758,6 +781,22 @@ const App = () => {
               userId={auth.user ? getUserId(auth.user) : null}
               isVisible={!chatExpanded}
             />
+          )}
+          
+          {/* Live Data Dashboard Section */}
+          {activeSection === 'live' && (
+            <div style={{ 
+              height: '100%', 
+              overflowY: 'auto', 
+              paddingBottom: '170px',
+              opacity: !chatExpanded ? 1 : 0,
+              transition: 'opacity 0.3s ease-in-out'
+            }}>
+              <LiveDataDashboard 
+                refreshInterval={1000}
+                showPoints={true}
+              />
+            </div>
           )}
           
           {/* Research Papers Section - Only visible to admins */}

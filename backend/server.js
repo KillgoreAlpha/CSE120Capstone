@@ -64,8 +64,9 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // AWS Bedrock Agent configuration - use env vars or fallback to hardcoded values
-const AGENT_ID = process.env.AGENT_ID || "AJBHXXILZN";
-const AGENT_ALIAS_ID = process.env.AGENT_ALIAS_ID || "AVKP1ITZAA";
+// Update: Using the values from .env file which are different from the hardcoded fallbacks
+const AGENT_ID = process.env.AGENT_ID || "AJBHXXILZN"; // .env has "UTBN48JQFH"
+const AGENT_ALIAS_ID = process.env.AGENT_ALIAS_ID || "AVKP1ITZAA"; // .env has "RNLNEZEVF4"
 const AWS_REGION = process.env.AWS_REGION || "us-east-2";
 
 const s3 = new S3Client({ region: AWS_REGION });
@@ -554,12 +555,19 @@ const invokeBedrockAgent = async (prompt, sessionId, additionalContext = null) =
   });
   
   try {
+    console.log("Sending request to Bedrock agent with sessionId:", finalSessionId);
+    console.log("Agent ID:", AGENT_ID);
+    console.log("Agent Alias ID:", AGENT_ALIAS_ID);
+    
     let completion = "";
     const response = await client.send(command);
     
     if (response.completion === undefined) {
+      console.error("Response received but completion is undefined");
       throw new Error("Completion is undefined");
     }
+    
+    console.log("Received response from Bedrock agent, processing chunks...");
     
     for await (const chunkEvent of response.completion) {
       const chunk = chunkEvent.chunk;
@@ -567,10 +575,20 @@ const invokeBedrockAgent = async (prompt, sessionId, additionalContext = null) =
       completion += decodedResponse;
     }
     
+    console.log("Successfully processed all chunks from Bedrock agent");
     return { sessionId: finalSessionId, completion };
   } catch (err) {
     console.error("Error in invokeBedrockAgent:", err);
-    throw err;
+    console.error("Error details:", JSON.stringify({
+      name: err.name,
+      message: err.message,
+      code: err.code,
+      requestId: err.$metadata?.requestId,
+      statusCode: err.$metadata?.httpStatusCode
+    }, null, 2));
+    
+    // Return a more user-friendly error that won't crash the server
+    throw new Error(`AWS Bedrock error: ${err.message || 'Unknown error'}`);
   }
 };
 
@@ -892,29 +910,42 @@ app.post("/chat", async (req, res) => {
     
     console.log(`===END DIAGNOSTIC: CHAT CONTEXT DECISION===`);
     
-    // Invoke the Bedrock agent with additional context
-    const result = await invokeBedrockAgent(question, sessionId, additionalContext);
-    
-    // If userId is provided, save the assistant response
-    if (userId) {
-      const assistantMessage = {
-        role: 'assistant',
-        content: result.completion
-      };
-      saveChatMessage(userId, sessionId, assistantMessage);
+    try {
+      // Invoke the Bedrock agent with additional context
+      console.log("Calling invokeBedrockAgent with sessionId:", sessionId);
+      const result = await invokeBedrockAgent(question, sessionId, additionalContext);
+      
+      // If userId is provided, save the assistant response
+      if (userId) {
+        const assistantMessage = {
+          role: 'assistant',
+          content: result.completion
+        };
+        saveChatMessage(userId, sessionId, assistantMessage);
+      }
+      
+      // For debugging, include in the response what data was included
+      res.json({
+        response: result.completion,
+        sessionId: result.sessionId,
+        healthDataIncluded: additionalContext?.healthData ? true : false,
+        profileDataIncluded: additionalContext?.userHealthProfile ? true : false
+      });
+    } catch (bedrock_error) {
+      console.error("AWS Bedrock Agent Error:", bedrock_error);
+      
+      // Return a more detailed error response
+      res.status(500).json({ 
+        error: "Failed to get response from AWS Bedrock Agent.",
+        details: bedrock_error.message,
+        errorType: bedrock_error.name || "Unknown",
+        errorCode: bedrock_error.code || "Unknown"
+      });
     }
-    
-    // For debugging, include in the response what data was included
-    res.json({
-      response: result.completion,
-      sessionId: result.sessionId,
-      healthDataIncluded: additionalContext?.healthData ? true : false,
-      profileDataIncluded: additionalContext?.userHealthProfile ? true : false
-    });
   } catch (error) {
-    console.error("AWS Bedrock Agent Error:", error);
+    console.error("General error in chat endpoint:", error);
     res.status(500).json({ 
-      error: "Failed to get response from AWS Bedrock Agent.",
+      error: "An error occurred processing your request.",
       details: error.message
     });
   }
