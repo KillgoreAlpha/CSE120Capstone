@@ -1,8 +1,8 @@
-import React, { useState, useEffect, JSX } from 'react';
+import React, { useState, useEffect, JSX, useRef } from 'react';
 import { PrinterOutlined } from '@ant-design/icons';
 import { 
   Typography, Row, Col, Card, Skeleton, Tabs, Divider, 
-  Button, Statistic, Badge, Space, Modal, Spin
+  Button, Statistic, Badge, Space, Modal, Spin, FloatButton
 } from 'antd';
 import { 
   LineChart, Line, BarChart, Bar, PieChart, Pie, 
@@ -20,6 +20,7 @@ import {
   LineChartOutlined
 } from '@ant-design/icons';
 import { useUserHealthProfile } from '../hooks/useUserHealthProfile';
+import Datapdf from './Datapdf';
 
 const { Text, Title } = Typography;
 const { TabPane } = Tabs;
@@ -221,6 +222,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
   const [showGraphs, setShowGraphs] = useState(false);
   const [expandedCard, setExpandedCard] = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'welcome' | 'vitals' | 'biomarkers' | 'charts'>('welcome');
+  const pdfRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Fetch health data from the API
@@ -375,6 +377,12 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
       { name: 'Decreasing', value: trendsCount.decreasing },
       { name: 'Insufficient Data', value: trendsCount.insufficient }
     ].filter(item => item.value > 0);
+  };
+
+  // Function to handle PDF export
+  const handleExportPDF = () => {
+    const event = new CustomEvent('exportPDF');
+    window.dispatchEvent(event);
   };
 
   // Don't render if not visible
@@ -713,17 +721,6 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                     {createLinkedSummaryText(analysisText)}
                   </Text>
                   <div style={{ marginTop: '16px', textAlign: 'right' }}>
-                    <Button
-                      type="default"
-                      icon={<PrinterOutlined />}
-                      onClick={() => {
-                        const event = new CustomEvent('exportPDF');
-                        window.dispatchEvent(event);
-                      }}
-                      style={{ marginRight: '10px' }}
-                    >
-                      Export to PDF
-                    </Button>
                     <Button 
                       type="primary"
                       icon={<BarChartOutlined />}
@@ -1060,16 +1057,34 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
       className="health-dashboard-container"
       style={{
         padding: '20px',
-        paddingBottom: '170px', // Ensure bottom graph isn't covered by chat panel
+        paddingBottom: '170px',
         height: '100%',
         overflowY: 'auto',
         transition: 'opacity 0.3s ease-in-out',
         opacity: isVisible ? 1 : 0,
-        WebkitOverflowScrolling: 'touch', // Enable smooth scrolling on iOS
+        WebkitOverflowScrolling: 'touch',
         display: 'flex',
-        flexDirection: 'column'
+        flexDirection: 'column',
+        position: 'relative'
       }}
     >
+      {/* Datapdf component - rendered in a portal */}
+      <div style={{ 
+        position: 'fixed',
+        left: '-9999px',
+        top: 0,
+        width: '800px',
+        height: '1500px',
+        backgroundColor: '#ffffff',
+        zIndex: -1
+      }}>
+        <Datapdf 
+          healthData={healthData} 
+          loading={loading} 
+          userName="Health Report" 
+        />
+      </div>
+      
       {activeView === 'welcome' ? renderWelcomeView() : 
        (showGraphs ? renderGraphsView() : 
         activeView === 'vitals' ? renderVitalsView() : 
