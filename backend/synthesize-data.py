@@ -1,3 +1,7 @@
+# This script generates synthetic biomarker data either in batch mode or streaming mode.
+# When in streaming mode, data is always saved to biomarker_data.csv regardless of the 
+# output file specified, ensuring the data is available for the frontend.
+
 import numpy as np
 import pandas as pd
 import datetime
@@ -157,10 +161,20 @@ def generate_biomarker_data_batch(
     # Format timestamp as string
     df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S.%f')
     
-    # Save to CSV
-    df.to_csv(output_file, index=False)
-    print(f"Generated {total_samples} samples ({duration_seconds} seconds at {sample_rate}Hz)")
-    print(f"Data saved to {output_file}")
+    # Save to CSV with append mode
+    # Check if file exists to determine whether to write headers
+    file_exists = os.path.isfile(output_file)
+    
+    if file_exists:
+        # Append without headers
+        df.to_csv(output_file, index=False, mode='a', header=False)
+        print(f"Generated {total_samples} samples ({duration_seconds} seconds at {sample_rate}Hz)")
+        print(f"Data appended to {output_file}")
+    else:
+        # Create new file with headers
+        df.to_csv(output_file, index=False)
+        print(f"Generated {total_samples} samples ({duration_seconds} seconds at {sample_rate}Hz)")
+        print(f"New data file created at {output_file}")
     
     return df
 
@@ -421,12 +435,30 @@ def stream_biomarker_data(
             if verbose and reading_count % 10 == 0:
                 print(f"Sent {reading_count} readings to server")
             
-            # Periodically update CSV file
+            # Periodically update CSV file - always update biomarker_data.csv
             if save_csv and reading_count % csv_update_interval == 0:
                 df = pd.DataFrame(all_readings)
-                df.to_csv(output_file, index=False)
+                
+                # Append to output_file
+                file_exists = os.path.isfile(output_file)
+                if file_exists:
+                    df.to_csv(output_file, mode='a', header=False, index=False)
+                else:
+                    df.to_csv(output_file, index=False)
+                
+                # Always save to biomarker_data.csv regardless of output_file
+                if output_file != 'biomarker_data.csv':
+                    file_exists = os.path.isfile('biomarker_data.csv')
+                    if file_exists:
+                        df.to_csv('biomarker_data.csv', mode='a', header=False, index=False)
+                    else:
+                        df.to_csv('biomarker_data.csv', index=False)
+                
                 if verbose:
-                    print(f"Updated CSV file with {len(all_readings)} readings")
+                    print(f"Appended {len(all_readings)} readings to CSV file(s)")
+                
+                # Clear the all_readings list to avoid appending the same data multiple times
+                all_readings = []
                 
             # Control timing
             time_offset += stream_interval
@@ -441,9 +473,27 @@ def stream_biomarker_data(
         # Save final CSV
         if save_csv and all_readings:
             df = pd.DataFrame(all_readings)
-            df.to_csv(output_file, index=False)
-            if verbose:
-                print(f"Saved final CSV with {len(all_readings)} readings to {output_file}")
+            
+            # Append to output_file
+            file_exists = os.path.isfile(output_file)
+            if file_exists:
+                df.to_csv(output_file, mode='a', header=False, index=False)
+            else:
+                df.to_csv(output_file, index=False)
+                
+            # Always save to biomarker_data.csv regardless of output_file
+            if output_file != 'biomarker_data.csv':
+                file_exists = os.path.isfile('biomarker_data.csv')
+                if file_exists:
+                    df.to_csv('biomarker_data.csv', mode='a', header=False, index=False)
+                else:
+                    df.to_csv('biomarker_data.csv', index=False)
+                    
+                if verbose:
+                    print(f"Appended final {len(all_readings)} readings to {output_file} and biomarker_data.csv")
+            else:
+                if verbose:
+                    print(f"Appended final {len(all_readings)} readings to {output_file}")
         
         if verbose:
             print(f"Sent a total of {reading_count} readings over {(datetime.datetime.now() - start_time).total_seconds() / 60:.2f} minutes")
