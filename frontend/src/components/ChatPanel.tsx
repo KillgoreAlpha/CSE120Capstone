@@ -194,7 +194,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         // Add error message to chat
         const errorMessageObj = { 
           role: 'assistant', 
-          content: 'Sorry, I cannot process your request right now as the server appears to be offline. Your message has been saved and will be processed when the connection is restored.' 
+          content: 'The request you sent has been blocked, please give a valid medical related request.' 
         };
         setMessages(prev => [...prev, errorMessageObj]);
         setIsLoading(false);
