@@ -188,7 +188,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
       
       // Ensure we use the correct WebSocket URL based on the environment
       // For development, hardcode the localhost URL to ensure consistency
-      const wsUrl = 'ws://localhost:3001'; // Use alternate port
+      const wsUrl = 'ws://localhost:3000'; // Use port 3000 to match server
       console.log(`Connecting WebSocket to ${wsUrl} for ${biomarker} (attempt ${connectionAttempts.current})`);
       
       try {
@@ -479,6 +479,14 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         }
       }
     },
+    layout: {
+      padding: {
+        left: 0,
+        right: 2,
+        top: 2,
+        bottom: 0
+      }
+    },
     scales: {
       x: {
         type: 'time' as const,
@@ -489,8 +497,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
           }
         },
         title: {
-          display: true,
-          text: 'Time'
+          display: false, // Removed title to save space
         },
         // Set static time window range instead of dynamic calculation on every render
         // Using fixed time window to prevent chart.js from auto-scaling and potentially dropping points
@@ -521,17 +528,31 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         grid: {
           display: true,
           color: 'rgba(0,0,0,0.1)'
+        },
+        ticks: {
+          maxRotation: 0, // Prevent label rotation
+          autoSkip: true, // Skip labels that would overlap
+          maxTicksLimit: 4, // Limit number of ticks to avoid clutter
+          font: {
+            size: 10 // Smaller font size
+          }
         }
       },
       y: {
         beginAtZero: false,
         title: {
-          display: true,
-          text: label
+          display: false, // Removed title to save space
         },
         grid: {
           display: true,
           color: 'rgba(0,0,0,0.1)'
+        },
+        ticks: {
+          font: {
+            size: 10 // Smaller font size
+          },
+          maxTicksLimit: 5, // Limit number of ticks
+          padding: 2 // Reduced padding
         }
       }
     },
@@ -546,7 +567,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         bodyColor: 'white',
         borderColor: 'white',
         borderWidth: 1,
-        padding: 10,
+        padding: 6, // Reduced padding
         callbacks: {
           title: (context: any) => {
             const date = new Date(context[0].parsed.x);
@@ -569,20 +590,31 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
   return (
     <div style={{ 
       width: '100%', 
-      height: '300px', 
+      height: '100%', // Changed from fixed height to responsive
       margin: '0 auto',
-      overflow: 'visible', // Changed from hidden to prevent clipping that might cause rendering issues
+      overflow: 'hidden', // Changed back to hidden to prevent overflow
       border: '1px solid #eee',
       borderRadius: '8px',
-      padding: '16px',
+      padding: '12px', // Reduced padding
+      boxSizing: 'border-box', // Ensure padding is included in element dimensions
       boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
-      backgroundColor: 'white'
+      backgroundColor: 'white',
+      display: 'flex',
+      flexDirection: 'column'
     }}>
-      <h3 style={{ textAlign: 'center', marginBottom: '12px', color: '#333' }}>{label}</h3>
+      <h3 style={{ 
+        textAlign: 'center', 
+        margin: '0 0 8px 0', // Reduced margin
+        color: '#333',
+        fontSize: '16px', // Smaller font size
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
+      }}>{label}</h3>
       {dataPoints.length === 0 ? (
         <div style={{ 
           display: 'flex', 
-          height: '80%', 
+          flex: '1',
           alignItems: 'center', 
           justifyContent: 'center',
           color: '#666',
@@ -595,9 +627,10 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         </div>
       ) : (
         <div style={{ 
-          height: 'calc(100% - 60px)',
+          flex: '1',
           position: 'relative',
-          backgroundColor: 'white'
+          backgroundColor: 'white',
+          minHeight: 0 // Important for flex sizing
         }}>
           <Line 
             data={chartData} 
@@ -609,13 +642,16 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
       )}
       <div style={{ 
         textAlign: 'center', 
-        fontSize: '12px', 
+        fontSize: '10px', // Smaller font
         color: '#666', 
-        marginTop: '8px',
-        padding: '4px',
-        borderTop: '1px solid #f0f0f0' 
+        marginTop: '4px', // Reduced margin
+        padding: '2px', // Reduced padding
+        borderTop: '1px solid #f0f0f0',
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis'
       }}>
-        Monitoring since {streamStartTime.current.toLocaleTimeString()} • {dataPoints.length} visible data points • {allDataPoints.current.length} total data points
+        Since {streamStartTime.current.toLocaleTimeString()} • {dataPoints.length} points
       </div>
     </div>
   );

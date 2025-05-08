@@ -230,8 +230,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
     const fetchHealthData = async () => {
       setLoading(true);
       try {
-        // Fetch readings from the backend API
-        const response = await fetch('http://localhost:3001/readings');
+        // Fetch readings from the backend API - fixed to use port 3000 instead of 3001
+        const response = await fetch('http://localhost:3000/readings');
         const data = await response.json();
 
         if (data && data.readings && data.readings.length > 0) {
@@ -465,8 +465,9 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: '10px',
-          marginTop: '10px'
+          padding: '0', // Removed padding
+          marginTop: '10px',
+          boxSizing: 'border-box'
         }}>
           <LiveDataGraph 
             biomarker={biomarker} 
@@ -896,8 +897,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
               <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 300px' }}>
                 <Text strong>Heart Rate (BPM)</Text>
                 <div style={{ 
-                  height: '250px', 
-                  marginTop: '16px',
+                  height: '220px', // Reduced height
+                  marginTop: '10px', // Reduced margin
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
@@ -915,8 +916,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
               <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 300px' }}>
                 <Text strong>Body Temperature (°C)</Text>
                 <div style={{ 
-                  height: '250px', 
-                  marginTop: '16px',
+                  height: '220px', // Reduced height
+                  marginTop: '10px', // Reduced margin
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
@@ -934,8 +935,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
               <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 300px' }}>
                 <Text strong>Blood Oxygen (%)</Text>
                 <div style={{ 
-                  height: '250px', 
-                  marginTop: '16px',
+                  height: '220px', // Reduced height
+                  marginTop: '10px', // Reduced margin
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
@@ -963,8 +964,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                       <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
                         <Text strong>Cortisol (nmol/L)</Text>
                         <div style={{ 
-                          height: '250px', 
-                          marginTop: '16px',
+                          height: '220px', 
+                          marginTop: '10px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
@@ -973,7 +974,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                             biomarker="cortisol_base" 
                             label="Cortisol (nmol/L)" 
                             color={COLORS.cortisol}
-                            showPoints={true}
+                            showPoints={false}
                             refreshInterval={1000}
                           />
                         </div>
@@ -982,8 +983,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                       <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
                         <Text strong>Lactate (mmol/L)</Text>
                         <div style={{ 
-                          height: '250px', 
-                          marginTop: '16px',
+                          height: '220px', 
+                          marginTop: '10px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
@@ -992,7 +993,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                             biomarker="lactate_base" 
                             label="Lactate (mmol/L)" 
                             color={COLORS.lactate}
-                            showPoints={true}
+                            showPoints={false}
                             refreshInterval={1000}
                           />
                         </div>
@@ -1001,8 +1002,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                       <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
                         <Text strong>Uric Acid (mg/dL)</Text>
                         <div style={{ 
-                          height: '250px', 
-                          marginTop: '16px',
+                          height: '220px', 
+                          marginTop: '10px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
@@ -1011,7 +1012,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                             biomarker="uric_acid_base" 
                             label="Uric Acid (mg/dL)" 
                             color={COLORS.uric_acid}
-                            showPoints={true}
+                            showPoints={false}
                             refreshInterval={1000}
                           />
                         </div>
@@ -1020,8 +1021,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                       <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
                         <Text strong>CRP (mg/L)</Text>
                         <div style={{ 
-                          height: '250px', 
-                          marginTop: '16px',
+                          height: '220px', 
+                          marginTop: '10px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
@@ -1030,7 +1031,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                             biomarker="crp_base" 
                             label="CRP (mg/L)" 
                             color={COLORS.crp}
-                            showPoints={true}
+                            showPoints={false}
                             refreshInterval={1000}
                           />
                         </div>
@@ -1039,8 +1040,8 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                       <Card bordered={false} style={{ minWidth: '300px', flex: '1 1 45%' }}>
                         <Text strong>IL-6 (pg/mL)</Text>
                         <div style={{ 
-                          height: '250px', 
-                          marginTop: '16px',
+                          height: '220px', 
+                          marginTop: '10px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
@@ -1049,7 +1050,7 @@ const HealthDashboard: React.FC<HealthDashboardProps> = ({ userId, isVisible }) 
                             biomarker="il6_base" 
                             label="IL-6 (pg/mL)" 
                             color={COLORS.il6}
-                            showPoints={true}
+                            showPoints={false}
                             refreshInterval={1000}
                           />
                         </div>
