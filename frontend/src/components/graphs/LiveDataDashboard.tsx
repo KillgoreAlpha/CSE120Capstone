@@ -57,9 +57,8 @@ const LiveDataDashboard: React.FC<LiveDataDashboardProps> = ({
 
   return (
     <div style={{ 
-      maxWidth: '1200px',
       width: '100%', 
-      margin: '0 auto', 
+      margin: '0', 
       padding: '20px',
       background: '#f8f9fa'
     }}>
@@ -68,15 +67,17 @@ const LiveDataDashboard: React.FC<LiveDataDashboardProps> = ({
         marginBottom: '20px',
         color: '#333',
         padding: '12px',
-        borderBottom: '1px solid #e1e4e8'
+        borderBottom: '1px solid #e1e4e8',
+        fontSize: '24px',
+        fontWeight: '600'
       }}>
         Real-Time Biomarker Monitoring
       </h2>
       
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-        gap: '24px',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', 
+        gap: '16px',
         marginBottom: '30px'
       }}>
         {biomarkers.map(biomarker => (
@@ -92,23 +93,23 @@ const LiveDataDashboard: React.FC<LiveDataDashboardProps> = ({
       </div>
 
       <div style={{ 
-        marginTop: '30px', 
+        marginTop: '24px', 
         padding: '20px', 
         backgroundColor: 'white', 
         borderRadius: '8px',
-        fontSize: '14px',
-        color: '#666',
+        fontSize: '16px',
+        color: '#444',
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
       }}>
-        <h4 style={{ marginTop: 0, color: '#333' }}>About This Dashboard</h4>
-        <p>
+        <h4 style={{ marginTop: 0, marginBottom: '12px', color: '#333', fontSize: '18px', fontWeight: '600' }}>About This Dashboard</h4>
+        <p style={{ margin: '8px 0' }}>
           This dashboard displays real-time biomarker data from the simulation. Data is refreshed every {refreshInterval/1000} seconds.
           The graphs show the most recent readings for each biomarker, with normal ranges indicated where applicable.
         </p>
-        <p>
+        <p style={{ margin: '8px 0' }}>
           <strong>Note:</strong> This is simulated data for demonstration purposes only and should not be used for medical diagnosis.
         </p>
-        <p>
+        <p style={{ margin: '8px 0' }}>
           <strong>Connection Status:</strong> Data is streamed via WebSocket with REST API fallback for reliable real-time updates.
         </p>
       </div>

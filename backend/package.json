@@ -9,8 +9,8 @@
     "dev": "nodemon --ignore 'chats/**/*' --ignore 'userdata/**/*' --ignore 'uploads/**/*' --ignore '*.db' --ignore '*.json' server-start.js",
     "dev:stable": "nodemon --watch server.js --watch server-start.js --watch routes/ server-start.js",
     "server": "node server-start.js",
-    "stream-data": "python3 synthesize-data.py stream --interval 1.0",
-    "dev:all": "node server-start.js & python3 synthesize-data.py stream --interval 1.0"
+    "stream-data": "python3 synthesize-data.py stream --stream-interval 0.5",
+    "dev:all": "node server-start.js & python3 synthesize-data.py stream --stream-interval 0.5"
   },
   "keywords": [],
   "author": "",
