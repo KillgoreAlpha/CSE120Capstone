@@ -75,6 +75,7 @@ async function checkUserInAdminGroup(username) {
 
 // Check if user is an admin
 router.get('/check-admin/:userId', async (req, res) => {
+  console.log('Check admin endpoint called for user:', req.params.userId);
   const userId = req.params.userId;
   
   // Special test case for development
@@ -94,6 +95,7 @@ router.get('/check-admin/:userId', async (req, res) => {
 
 // Get list of research papers - admin only
 router.get('/papers', isAdmin, (req, res) => {
+  console.log('Research papers endpoint called for user:', req.query.userId);
   try {
     const papersPath = path.join(__dirname, '../biomarker_research/paper_registry.json');
     
