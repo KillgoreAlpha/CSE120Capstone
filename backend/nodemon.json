@@ -1,0 +1,31 @@
+{
+  "verbose": true,
+  "ignore": [
+    "*.test.js",
+    "chats",
+    "chats/**/*",
+    "userdata",
+    "userdata/**/*",
+    "uploads",
+    "uploads/**/*",
+    "biomarker_data.csv",
+    "*.db",
+    "userHealth.db",
+    ".env",
+    "node_modules/*",
+    "*.json"
+  ],
+  "watch": [
+    "server.js",
+    "server-start.js",
+    "routes/**/*.js"
+  ],
+  "events": {
+    "restart": "echo \"Server restarting...\"",
+    "crash": "echo \"Server crashed - waiting for changes before restart\""
+  },
+  "delay": "2000",
+  "execMap": {
+    "js": "node --max-old-space-size=2048"
+  }
+}

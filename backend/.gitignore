@@ -1,0 +1,53 @@
+Phase-1/Back-end/scripts/__pycache__/chat_manager.cpython-39.pyc
+Phase-1/Back-end/scripts/__pycache__/create_health_summary.cpython-39.pyc
+Phase-1/Back-end/scripts/__pycache__/device_data_query.cpython-39.pyc
+Phase-1/Back-end/scripts/__pycache__/embeddings_manager.cpython-39.pyc
+Phase-1/Back-end/scripts/__pycache__/llm_manager.cpython-39.pyc
+Phase-1/Back-end/scripts/__pycache__/pdf_reader.cpython-39.pyc
+Phase-1/Back-end/scripts/__pycache__/pinecone_manager.cpython-39.pyc
+Phase-1/Back-end/scripts/__pycache__/prompt_generator.cpython-39.pyc
+Phase-1/Back-end/importedData/compareresponses.csv
+Phase-1/Back-end/scripts/.env
+Phase-1/Back-end/scripts/__pycache__/data_manager.cpython-39.pyc
+Phase-1/Back-end/importedData/Statistical Tools to Analyze Continuous Glucose Monitor Data - PMC.pdf
+Phase-1/Back-end/db_api_backend/bin/database/clean.sql
+Phase-1/Back-end/db_api_backend/.idea
+Phase-1/Web-chat/.idea
+Phase-1/node_modules
+Phase-1/.idea
+Phase-1/.vscode
+
+venv/
+Back-end/server/__pycache__/llm_manager.cpython-39.pyc
+Back-end/server/__pycache__/
+
+read.md
+feedback.json
+
+## Front-end ##
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.env
+

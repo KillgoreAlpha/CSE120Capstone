@@ -1,0 +1,12 @@
+{
+  "age": 22,
+  "gender": "male",
+  "language": "english",
+  "weight": 86.2,
+  "height": 190.5,
+  "alcohol": "none",
+  "smoking": "none",
+  "exerciseLevel": "none",
+  "stressLevel": "low",
+  "dietType": "other"
+}

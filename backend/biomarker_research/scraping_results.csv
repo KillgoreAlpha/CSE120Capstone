@@ -1,0 +1,58 @@
+Title,URL,Abstract,Biomarkers,Has_Numerical_Data,Date_Retrieved,Source,Paper_ID
+Conversion Therapy Exposure and Elevated Cardiovascular Disease Risk.,https://pubmed.ncbi.nlm.nih.gov/40327341/,"Abstract
+        
+      
+
+
+
+          Importance:
+        
+      
+      Sexual orientation and gender identity change efforts (SOGICE), commonly known as conversion therapy, persist across the United States despite having been discredited due to their harmful mental health impact. Understanding the health consequences of SOGICE is critical, particularly for conditions exacerbated by stress, such as cardiovascular disease.
+    
+
+
+          Objective:
+        
+      
+      To investigate the assoc...",None detected,True,2025-05-06,pubmed,18f7c5cdd5e1280effb944656a77059b
+Predictive factors for delayed high-dose methotrexate elimination: A practical issue for diffuse large B-cell lymphoma patients.,https://pubmed.ncbi.nlm.nih.gov/40326045/,"Abstract
+        
+      
+
+
+      
+      PurposeThe high-dose methotrexate (HD-MTX) regimen (>1 g/m2) is the standard of care for preventing and managing central nervous system (CNS) invasion in diffuse large B-cell lymphoma (DLBCL). Delayed elimination of HD-MTX can lead to severe toxicity. Albumin is a suggested biological marker to predict delayed elimination. This study aims to evaluate whether serum albumin can be used as a predictive factor.MethodsThis retrospective bicentric study includes...",None detected,True,2025-05-06,pubmed,65abeba84e2eb9d1c803caeb1f332949
+"Automated Detection of Persistent Inflammatory Biomarkers in
+  Post-COVID-19 Patients Using Machine Learning Techniques",http://arxiv.org/abs/2309.15838v1,"The COVID-19 pandemic has left a lasting impact on individuals, with many
+experiencing persistent symptoms, including inflammation, in the post-acute
+phase of the disease. Detecting and monitoring these inflammatory biomarkers is
+critical for timely intervention and improved patient outcomes. This study
+employs machine learning techniques to automate the identification of
+persistent inflammatory biomarkers in 290 post-COVID-19 patients, based on
+medical data collected from hospitals in Iraq. The...",interleukin-6,True,2025-05-06,arxiv,3350f2563e3111d08a905d04e89b8b98
+"Estimating Discontinuous Time-Varying Risk Factors and Treatment
+  Benefits for COVID-19 with Interpretable ML",http://arxiv.org/abs/2211.08991v1,"Treatment protocols, disease understanding, and viral characteristics changed
+over the course of the COVID-19 pandemic; as a result, the risks associated
+with patient comorbidities and biomarkers also changed. We add to the
+conversation regarding inflammation, hemostasis and vascular function in
+COVID-19 by performing a time-varying observational analysis of over 4000
+patients hospitalized for COVID-19 in a New York City hospital system from
+March 2020 to August 2021. To perform this analysis, w...",None detected,True,2025-05-06,arxiv,d91ff40bf57689671350b08f60243829
+"Association between nutritional factors, inflammatory biomarkers and
+  cancer types: an analysis of NHANES data using machine learning",http://arxiv.org/abs/2504.13978v1,"Background. Diet and inflammation are critical factors influencing cancer
+risk. However, the combined impact of nutritional status and inflammatory
+biomarkers on cancer status and type, using machine learning (ML), remains
+underexplored.
+  Objectives. This study investigates the association between nutritional
+factors, inflammatory biomarkers, and cancer status, and whether these
+relationships differ across cancer types using National Health and Nutrition
+Examination Survey (NHANES) data.
+  Meth...",crp,True,2025-05-06,arxiv,ae37abab54f10d00a1cd782f1e44ee08
+Multimodal AI-driven Biomarker for Early Detection of Cancer Cachexia,http://arxiv.org/abs/2503.06797v1,"Cancer cachexia is a multifactorial syndrome characterized by progressive
+muscle wasting, metabolic dysfunction, and systemic inflammation, leading to
+reduced quality of life and increased mortality. Despite extensive research, no
+single definitive biomarker exists, as cachexia-related indicators such as
+serum biomarkers, skeletal muscle measurements, and metabolic abnormalities
+often overlap with other conditions. Existing composite indices, including the
+Cancer Cachexia Index (CXI), Modified C...",None detected,True,2025-05-06,arxiv,54d57c4bda5498475d7deca49c5740f8

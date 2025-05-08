@@ -1,0 +1,42 @@
+{
+  "name": "aws-chatbot",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server-start.js",
+    "dev": "nodemon --ignore 'chats/**/*' --ignore 'userdata/**/*' --ignore 'uploads/**/*' --ignore '*.db' --ignore '*.json' server-start.js",
+    "dev:stable": "nodemon --watch server.js --watch server-start.js --watch routes/ server-start.js",
+    "server": "node server-start.js",
+    "stream-data": "python3 synthesize-data.py stream --stream-interval 0.5",
+    "dev:all": "node server-start.js & python3 synthesize-data.py stream --stream-interval 0.5"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.765.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.758.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.804.0",
+    "@aws-sdk/client-lambda": "^3.806.0",
+    "@aws-sdk/client-s3": "^3.796.0",
+    "@aws-sdk/client-transcribe": "^3.796.0",
+    "@aws-sdk/client-translate": "^3.806.0",
+    "@aws-sdk/s3-request-presigner": "^3.796.0",
+    "aws-sdk": "^2.1692.0",
+    "axios": "^1.6.2",
+    "better-sqlite3": "^11.9.1",
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "csv-parser": "^3.0.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}

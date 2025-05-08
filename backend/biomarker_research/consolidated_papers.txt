@@ -1,0 +1,267 @@
+CONSOLIDATED BIOMARKER RESEARCH PAPERS
+Generated on: 2025-05-06 11:11:04
+Query: inflammation biomarker
+================================================================================
+
+================================================================================
+Paper Title: Conversion Therapy Exposure and Elevated Cardiovascular Disease Risk.
+URL: https://pubmed.ncbi.nlm.nih.gov/40327341/
+Source: pubmed
+Biomarkers: None detected
+Has Numerical Data: True
+Date Retrieved: 2025-05-06
+---------------------------------------- ABSTRACT ----------------------------------------
+Abstract
+        
+      
+
+
+
+          Importance:
+        
+      
+      Sexual orientation and gender identity change efforts (SOGICE), commonly known as conversion therapy, persist across the United States despite having been discredited due to their harmful mental health impact. Understanding the health consequences of SOGICE is critical, particularly for conditions exacerbated by stress, such as cardiovascular disease.
+    
+
+
+          Objective:
+        
+      
+      To investigate the association between SOGICE exposure and cardiovascular disease risk.
+    
+
+
+          Design, setting, and participants:
+        
+      
+      This cohort study draws on data from the observational cohort study RADAR, which included sexual and gender minority (SGM) young adults assigned male at birth (AMAB) in Chicago, Illinois. All data for this analysis were collected cross-sectionally during the same study visit for each participant between December 1, 2023, and October 31, 2024. Participants who completed SOGICE exposure measures and had cardiovascular health data were eligible; participants with incomplete data were excluded.
+    
+
+
+          Exposure:
+        
+      
+      SOGICE exposure and duration.
+    
+
+
+          Main outcomes and measures:
+        
+      
+      Primary outcomes were diastolic blood pressure (DBP) and systolic blood pressure (SBP) measured via automatic monitors, systemic inflammation (SI) assessed through plasma biomarkers, and self-reported hypertension or high blood pressure (HHBP) diagnosis. Regression analyses were adjusted for sociodemographic and behavioral covariates.
+    
+
+
+          Results:
+        
+      
+      Among 703 participants (mean [SD] age, 26.75 [4.60] years), 540 (76.8%) identified as cisgender, and 163 (23.2%) identified as transgender or gender diverse. Seventy-two participants (10.2%) reported exposure to SOGICE. Exposed participants had higher SI levels (β = 0.83; 95% CI, 0.17-1.49; P = .02), increased DBP (β = 3.46; 95% CI, 0.60-6.32; P = .02), elevated SBP (β = 4.28; 95% CI, 0.68-7.87; P = .02), and greater odds of self-reported HHBP diagnosis (odds ratio, 2.86; 95% CI, 2.19-3.54; P = .003) compared with nonexposed participants. Associations remained significant after adjusting for covariates.
+    
+
+
+          Conclusions and relevance:
+        
+      
+      In this cohort study of SGM young adults AMAB, exposure to SOGICE was associated with adverse cardiovascular health indicators, including elevated DBP and SBP, increased SI, and higher odds of self-reported HHBP. These findings underscore the need for public health and policy interventions to enforce and strengthen bans on SOGICE practices. Recognizing the cardiovascular health consequences of SOGICE contributes to addressing SGM health disparities and emphasizes the importance of affirmative care approaches that prioritize the well-being of SGM individuals.
+
+================================================================================
+Paper Title: Predictive factors for delayed high-dose methotrexate elimination: A practical issue for diffuse large B-cell lymphoma patients.
+URL: https://pubmed.ncbi.nlm.nih.gov/40326045/
+Source: pubmed
+Biomarkers: None detected
+Has Numerical Data: True
+Date Retrieved: 2025-05-06
+---------------------------------------- ABSTRACT ----------------------------------------
+Abstract
+        
+      
+
+
+      
+      PurposeThe high-dose methotrexate (HD-MTX) regimen (>1 g/m2) is the standard of care for preventing and managing central nervous system (CNS) invasion in diffuse large B-cell lymphoma (DLBCL). Delayed elimination of HD-MTX can lead to severe toxicity. Albumin is a suggested biological marker to predict delayed elimination. This study aims to evaluate whether serum albumin can be used as a predictive factor.MethodsThis retrospective bicentric study includes DLBCL patients, receiving HD-MTX from 06.30.2016 to 12.31.2023 using CHIMI0v5.9. Data collected included demographic, biological, clinical and therapeutic. Eligible patients were over 18 years, with DLBCL diagnosis, available serum albumin before HD-MTX, with therapeutic drug monitoring of plasma methotrexate available. Univariate and multivariate analysis compared patients with and without delayed elimination.ResultsA total of 68 patients were included, with 15 suffering delayed elimination. Univariate analysis showed that male and Body Surface Area ≥ 2 m² (BSA) patients were more likely to have delayed clearance (respectively p = 0.01; p = 0.05). The association with male sex was confirmed in multivariate analysis (p = 0.01). Most cases of hypoalbuminemia were classified as grade 1 or 2. Patients with hypoalbuminemia received lower doses of MTX. Serum albumin level was not significantly associated with delayed elimination (p = 0.8).ConclusionsOverall, mainly biometric factors are associated with delayed elimination, highlighting the problem of prescribing habits based on body surface area. Albuminemia's role remains debated, and this study does not provide a conclusion, as patients with hypoalbuminemia received lower HD-MTX doses. Studies should account factors related to inflammation, nutrition and specific biomarkers (prealbumin).
+    
+
+
+
+          Keywords:
+        
+      
+      Methotrexate; hypoalbuminemia; lymphoma.
+
+================================================================================
+Paper Title: Automated Detection of Persistent Inflammatory Biomarkers in
+  Post-COVID-19 Patients Using Machine Learning Techniques
+URL: http://arxiv.org/abs/2309.15838v1
+Source: arxiv
+Biomarkers: interleukin-6
+Has Numerical Data: True
+Date Retrieved: 2025-05-06
+---------------------------------------- ABSTRACT ----------------------------------------
+The COVID-19 pandemic has left a lasting impact on individuals, with many
+experiencing persistent symptoms, including inflammation, in the post-acute
+phase of the disease. Detecting and monitoring these inflammatory biomarkers is
+critical for timely intervention and improved patient outcomes. This study
+employs machine learning techniques to automate the identification of
+persistent inflammatory biomarkers in 290 post-COVID-19 patients, based on
+medical data collected from hospitals in Iraq. The data encompassed a wide
+array of clinical parameters, such as C-reactive protein and interleukin-6
+levels, patient demographics, comorbidities, and treatment histories. Rigorous
+data preprocessing and feature selection processes were implemented to optimize
+the dataset for machine learning analysis. Various machine learning algorithms,
+including logistic regression, random forests, support vector machines, and
+gradient boosting, were deployed to construct predictive models. These models
+exhibited promising results, showcasing high accuracy and precision in the
+identification of patients with persistent inflammation. The findings of this
+study underscore the potential of machine learning in automating the detection
+of persistent inflammatory biomarkers in post-COVID-19 patients. These models
+can serve as valuable tools for healthcare providers, facilitating early
+diagnosis and personalized treatment strategies for individuals at risk of
+persistent inflammation, ultimately contributing to improved post-acute
+COVID-19 care and patient well-being. Keywords: COVID-19, post-COVID-19,
+inflammation, biomarkers, machine learning, early detection.
+
+================================================================================
+Paper Title: Estimating Discontinuous Time-Varying Risk Factors and Treatment
+  Benefits for COVID-19 with Interpretable ML
+URL: http://arxiv.org/abs/2211.08991v1
+Source: arxiv
+Biomarkers: None detected
+Has Numerical Data: True
+Date Retrieved: 2025-05-06
+---------------------------------------- ABSTRACT ----------------------------------------
+Treatment protocols, disease understanding, and viral characteristics changed
+over the course of the COVID-19 pandemic; as a result, the risks associated
+with patient comorbidities and biomarkers also changed. We add to the
+conversation regarding inflammation, hemostasis and vascular function in
+COVID-19 by performing a time-varying observational analysis of over 4000
+patients hospitalized for COVID-19 in a New York City hospital system from
+March 2020 to August 2021. To perform this analysis, we apply tree-based
+generalized additive models with temporal interactions which recover
+discontinuous risk changes caused by discrete protocols changes. We find that
+the biomarkers of thrombosis increasingly predicted mortality from March 2020
+to August 2021, while the association between biomarkers of inflammation and
+thrombosis weakened. Beyond COVID-19, this presents a straightforward
+methodology to estimate unknown and discontinuous time-varying effects.
+
+================================================================================
+Paper Title: Association between nutritional factors, inflammatory biomarkers and
+  cancer types: an analysis of NHANES data using machine learning
+URL: http://arxiv.org/abs/2504.13978v1
+Source: arxiv
+Biomarkers: crp
+Has Numerical Data: True
+Date Retrieved: 2025-05-06
+---------------------------------------- ABSTRACT ----------------------------------------
+Background. Diet and inflammation are critical factors influencing cancer
+risk. However, the combined impact of nutritional status and inflammatory
+biomarkers on cancer status and type, using machine learning (ML), remains
+underexplored.
+  Objectives. This study investigates the association between nutritional
+factors, inflammatory biomarkers, and cancer status, and whether these
+relationships differ across cancer types using National Health and Nutrition
+Examination Survey (NHANES) data.
+  Methods. We analyzed 24 macro- and micronutrients, C-reactive protein (CRP),
+and the advanced lung cancer inflammation index (ALI) in 26,409 NHANES
+participants (2,120 with cancer). Multivariable logistic regression assessed
+associations with cancer prevalence. We also examined whether these features
+differed across the five most common cancer types. To evaluate predictive
+value, we applied three ML models - Logistic Regression, Random Forest, and
+XGBoost - on the full feature set.
+  Results. The cohort's mean age was 49.1 years; 34.7% were obese.
+Comorbidities such as anemia and liver conditions, along with nutritional
+factors like protein and several vitamins, were key predictors of cancer
+status. Among the models, Random Forest performed best, achieving an accuracy
+of 0.72.
+  Conclusions. Higher-quality nutritional intake and lower levels of
+inflammation may offer protective effects against cancer. These findings
+highlight the potential of combining nutritional and inflammatory markers with
+ML to inform cancer prevention strategies.
+
+================================================================================
+Paper Title: Multimodal AI-driven Biomarker for Early Detection of Cancer Cachexia
+URL: http://arxiv.org/abs/2503.06797v1
+Source: arxiv
+Biomarkers: None detected
+Has Numerical Data: True
+Date Retrieved: 2025-05-06
+---------------------------------------- ABSTRACT ----------------------------------------
+Cancer cachexia is a multifactorial syndrome characterized by progressive
+muscle wasting, metabolic dysfunction, and systemic inflammation, leading to
+reduced quality of life and increased mortality. Despite extensive research, no
+single definitive biomarker exists, as cachexia-related indicators such as
+serum biomarkers, skeletal muscle measurements, and metabolic abnormalities
+often overlap with other conditions. Existing composite indices, including the
+Cancer Cachexia Index (CXI), Modified CXI (mCXI), and Cachexia Score (CASCO),
+integrate multiple biomarkers but lack standardized thresholds, limiting their
+clinical utility. This study proposes a multimodal AI-based biomarker for early
+cancer cachexia detection, leveraging open-source large language models (LLMs)
+and foundation models trained on medical data. The approach integrates
+heterogeneous patient data, including demographics, disease status, lab
+reports, radiological imaging (CT scans), and clinical notes, using a machine
+learning framework that can handle missing data. Unlike previous AI-based
+models trained on curated datasets, this method utilizes routinely collected
+clinical data, enhancing real-world applicability. Additionally, the model
+incorporates confidence estimation, allowing the identification of cases
+requiring expert review for precise clinical interpretation. Preliminary
+findings demonstrate that integrating multiple data modalities improves
+cachexia prediction accuracy at the time of cancer diagnosis. The AI-based
+biomarker dynamically adapts to patient-specific factors such as age, race,
+ethnicity, weight, cancer type, and stage, avoiding the limitations of
+fixed-threshold biomarkers. This multimodal AI biomarker provides a scalable
+and clinically viable solution for early cancer cachexia detection,
+facilitating personalized interventions and potentially improving treatment
+outcomes and patient survival.
+
+================================================================================
+Paper Title: Comparison of Laparoscopic Cholecystectomy Outcome with Laparoscopic <em>Versus </em>Endoscopic Bile Duct Exploration in Elderly Patients with Cholecystolithiasis and Choledocholithiasis.
+URL: https://pubmed.ncbi.nlm.nih.gov/40325570/
+Source: pubmed
+Biomarkers: cortisol, crp, il-6, interleukin-6
+Has Numerical Data: True
+Date Retrieved: 2025-05-06
+---------------------------------------- ABSTRACT ----------------------------------------
+Abstract
+        
+      
+
+
+
+          Objective:
+        
+      
+      To evaluate the efficacy and safety of minimally invasive surgery in elderly patients with cholecystolithiasis and choledocholithiasis and its effects on liver function and stress response.
+    
+
+
+          Study design:
+        
+      
+      Comparative observational study. Place and Duration of the Study: Department of Hepatobiliary Surgery, Anyang City People's Hospital, Xinxiang Medical College, Anyang, China, from August 2021 to 2023.
+    
+
+
+          Methodology:
+        
+      
+      Eighty-six elderly patients with cholecystolithiasis and choledocholithiasis were divided into two distinct groups. The control group (n = 43) underwent endoscopic retrograde cholangiopancreatography (ERCP) in conjunction with laparoscopic cholecystectomy (LC). The observation group (n = 43) received LC along with laparoscopic common bile duct exploration (LCBDE). Comparative analysis of perioperative outcomes, complication rates, the frequency of residual stones, and liver function markers, including total bilirubin (TBil), aspartate aminotransferase (AST), and alanine aminotransferase (ALT) was made. Furthermore, inflammatory markers such as tumour necrosis factor-alpha (TNF-α), C-reactive protein (CRP), and Interleukin-6 (IL-6), as well as stress markers including cortisol and epinephrine were also evaluated. Also, the quality of life both before and after surgery was assessed.
+    
+
+
+          Results:
+        
+      
+      The observation group had better perioperative outcomes with a lower complication rate (4.65% vs. 20.93% in controls, p <0.05). Both groups showed significant post-surgical improvements in liver function markers (TBil, AST, ALT, p <0.05), with no significant inter-group differences. Postoperative inflammatory (TNF-α, CRP, IL-6) and stress markers (cortisol, epinephrine) increased significantly (p <0.05), with trends favouring lower levels in the observation group. Quality of life scores significantly improved in both groups one month post-surgery (p <0.05).
+    
+
+
+          Conclusion:
+        
+      
+      LC combined with LCBDE is as effective as ERCP combined with LC for removing stones and improving liver function and quality of life in elderly patients with cholecystolithiasis and choledocholithiasis. However, the LC combined with the laparoscopic common bile duct exploration approach has fewer complications, reduces inflammation and stress responses, and supports better overall recovery, making it the preferred option for this patient population.
+    
+
+
+          Key words:
+        
+      
+      Gallstone, Choledocholithiasis, Old age, Minimally invasive surgery, Liver function, Stress response.
