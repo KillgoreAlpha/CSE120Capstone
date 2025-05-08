@@ -30,6 +30,7 @@ import {
   DashboardOutlined,
   SettingOutlined,
   FileTextOutlined,
+  PrinterOutlined,,
   LineChartOutlined,
   CommentOutlined
 } from '@ant-design/icons';
@@ -588,6 +589,16 @@ const App = () => {
         <Space>
           {auth.isAuthenticated && !isMobile && (
             <Space>
+              <Button
+                type="text"
+                icon={<PrinterOutlined />}
+                onClick={() => {
+                  const event = new CustomEvent('exportPDF');
+                  window.dispatchEvent(event);
+                }}
+              >
+                Export PDF
+              </Button>
               <Button
                 type="text"
                 icon={<UserOutlined />}
