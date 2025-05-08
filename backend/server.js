@@ -510,111 +510,184 @@ const getRecentHealthData = () => {
  * @param {object} [additionalContext] - Optional additional context/data to include
  */
 const invokeBedrockAgent = async (prompt, sessionId, additionalContext = null) => {
-  // Create client with region from env vars or credentials if provided
-  let clientConfig = { region: AWS_REGION };
-  
-  if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
-    clientConfig.credentials = {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-    };
-  }
-  
-  const client = new BedrockAgentRuntimeClient(clientConfig);
-  
-  // Generate a session ID if none is provided
-  const finalSessionId = sessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
-  
-  // Prepare the input text - include health data if provided
-  let inputText = prompt;
-  
-  // Add biomarker data if available
-  if (additionalContext && additionalContext.healthData) {
-    console.log('===DIAGNOSTIC: ADDING BIOMARKER DATA TO LLM CONTEXT===');
-    console.log(JSON.stringify(additionalContext.healthData, null, 2));
-    console.log('===END DIAGNOSTIC: BIOMARKER DATA===');
-    
-    inputText += `\n\n===USER BIOMARKER DATA===\n${JSON.stringify(additionalContext.healthData, null, 2)}\n===END USER BIOMARKER DATA===`;
-  }
-  
-  // Add user health profile if available
-  if (additionalContext && additionalContext.userHealthProfile) {
-    console.log('===DIAGNOSTIC: ADDING USER HEALTH PROFILE TO LLM CONTEXT===');
-    console.log(JSON.stringify(additionalContext.userHealthProfile, null, 2));
-    console.log('===END DIAGNOSTIC: USER HEALTH PROFILE===');
-    
-    // Format the health profile in a more readable way
-    let profileText = '';
-    const profile = additionalContext.userHealthProfile;
-    
-    // Build a human-readable health profile summary
-    if (profile) {
-      profileText += `Age: ${profile.age || 'Not specified'}\n`;
-      profileText += `Gender: ${profile.gender || 'Not specified'}\n`;
-      profileText += `Height: ${profile.height ? `${profile.height} cm` : 'Not specified'}\n`;
-      profileText += `Weight: ${profile.weight ? `${profile.weight} kg` : 'Not specified'}\n`;
-      profileText += `Pre-existing Conditions: ${profile.preExistingConditions?.length > 0 ? profile.preExistingConditions.join(', ') : 'None reported'}\n`;
-      profileText += `Alcohol Consumption: ${profile.alcohol || 'Not specified'}\n`;
-      profileText += `Smoking: ${profile.smoking || 'Not specified'}\n`;
-      profileText += `Recreational Drug Use: ${profile.drugUse ? 'Yes' : 'No'}\n`;
-      profileText += `Exercise Level: ${profile.exerciseLevel || 'Not specified'}\n`;
-      profileText += `Exercise Frequency: ${profile.exerciseFrequency ? `${profile.exerciseFrequency} times per week` : 'Not specified'}\n`;
-      profileText += `Sleep: ${profile.sleepHours ? `${profile.sleepHours} hours per night` : 'Not specified'}\n`;
-      profileText += `Stress Level: ${profile.stressLevel || 'Not specified'}\n`;
-      profileText += `Diet Type: ${profile.dietType || 'Not specified'}\n`;
-    }
-    
-    // Add the formatted profile to the LLM context
-    inputText += `\n\n===USER HEALTH PROFILE===\n${profileText}\n===END USER HEALTH PROFILE===`;
-  }
-  
-  // Log the complete input text being sent to the LLM
-  console.log('===DIAGNOSTIC: COMPLETE LLM INPUT===');
-  console.log(inputText);
-  console.log('===END DIAGNOSTIC: COMPLETE LLM INPUT===');
-  
-  const command = new InvokeAgentCommand({
-    agentId: AGENT_ID,
-    agentAliasId: AGENT_ALIAS_ID,
-    sessionId: finalSessionId,
-    inputText: inputText,
-  });
-  
+  // Create a fallback basic response in case we can't get a response from Bedrock
+  const fallbackCompletion = {
+    sessionId: sessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`,
+    completion: "I'm sorry, I'm having trouble connecting to my knowledge services right now. Please try again in a moment."
+  };
+
+  // Catch absolutely any error that might happen
   try {
-    console.log("Sending request to Bedrock agent with sessionId:", finalSessionId);
-    console.log("Agent ID:", AGENT_ID);
-    console.log("Agent Alias ID:", AGENT_ALIAS_ID);
+    // Create client with region from env vars or credentials if provided
+    let clientConfig = { region: AWS_REGION };
     
-    let completion = "";
-    const response = await client.send(command);
-    
-    if (response.completion === undefined) {
-      console.error("Response received but completion is undefined");
-      throw new Error("Completion is undefined");
+    if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+      clientConfig.credentials = {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      };
+      console.log("Using AWS credentials from environment variables");
+    } else {
+      console.warn("No AWS credentials found in environment variables");
     }
     
-    console.log("Received response from Bedrock agent, processing chunks...");
+    // Create a custom event listener to prevent unhandled promise rejections
+    const unhandledRejection = (reason, promise) => {
+      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+      // We just log it and continue - don't let it crash the server
+    };
     
-    for await (const chunkEvent of response.completion) {
-      const chunk = chunkEvent.chunk;
-      const decodedResponse = new TextDecoder("utf-8").decode(chunk.bytes);
-      completion += decodedResponse;
+    // Add the listener for this operation
+    process.on('unhandledRejection', unhandledRejection);
+    
+    try {
+      const client = new BedrockAgentRuntimeClient(clientConfig);
+      
+      // Generate a session ID if none is provided
+      const finalSessionId = sessionId || `session-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+      
+      // Prepare the input text - include health data if provided
+      let inputText = prompt;
+      
+      // Add biomarker data if available
+      if (additionalContext && additionalContext.healthData) {
+        console.log('===DIAGNOSTIC: ADDING BIOMARKER DATA TO LLM CONTEXT===');
+        console.log(JSON.stringify(additionalContext.healthData, null, 2));
+        console.log('===END DIAGNOSTIC: BIOMARKER DATA===');
+        
+        inputText += `\n\n===USER BIOMARKER DATA===\n${JSON.stringify(additionalContext.healthData, null, 2)}\n===END USER BIOMARKER DATA===`;
+      }
+      
+      // Add user health profile if available
+      if (additionalContext && additionalContext.userHealthProfile) {
+        console.log('===DIAGNOSTIC: ADDING USER HEALTH PROFILE TO LLM CONTEXT===');
+        console.log(JSON.stringify(additionalContext.userHealthProfile, null, 2));
+        console.log('===END DIAGNOSTIC: USER HEALTH PROFILE===');
+        
+        // Format the health profile in a more readable way
+        let profileText = '';
+        const profile = additionalContext.userHealthProfile;
+        
+        // Build a human-readable health profile summary
+        if (profile) {
+          profileText += `Age: ${profile.age || 'Not specified'}\n`;
+          profileText += `Gender: ${profile.gender || 'Not specified'}\n`;
+          profileText += `Height: ${profile.height ? `${profile.height} cm` : 'Not specified'}\n`;
+          profileText += `Weight: ${profile.weight ? `${profile.weight} kg` : 'Not specified'}\n`;
+          profileText += `Pre-existing Conditions: ${profile.preExistingConditions?.length > 0 ? profile.preExistingConditions.join(', ') : 'None reported'}\n`;
+          profileText += `Alcohol Consumption: ${profile.alcohol || 'Not specified'}\n`;
+          profileText += `Smoking: ${profile.smoking || 'Not specified'}\n`;
+          profileText += `Recreational Drug Use: ${profile.drugUse ? 'Yes' : 'No'}\n`;
+          profileText += `Exercise Level: ${profile.exerciseLevel || 'Not specified'}\n`;
+          profileText += `Exercise Frequency: ${profile.exerciseFrequency ? `${profile.exerciseFrequency} times per week` : 'Not specified'}\n`;
+          profileText += `Sleep: ${profile.sleepHours ? `${profile.sleepHours} hours per night` : 'Not specified'}\n`;
+          profileText += `Stress Level: ${profile.stressLevel || 'Not specified'}\n`;
+          profileText += `Diet Type: ${profile.dietType || 'Not specified'}\n`;
+        }
+        
+        // Add the formatted profile to the LLM context
+        inputText += `\n\n===USER HEALTH PROFILE===\n${profileText}\n===END USER HEALTH PROFILE===`;
+      }
+      
+      // Log the complete input text being sent to the LLM
+      console.log('===DIAGNOSTIC: COMPLETE LLM INPUT===');
+      console.log(inputText);
+      console.log('===END DIAGNOSTIC: COMPLETE LLM INPUT===');
+      
+      const command = new InvokeAgentCommand({
+        agentId: AGENT_ID,
+        agentAliasId: AGENT_ALIAS_ID,
+        sessionId: finalSessionId,
+        inputText: inputText,
+      });
+      
+      console.log("Sending request to Bedrock agent with sessionId:", finalSessionId);
+      console.log("Agent ID:", AGENT_ID);
+      console.log("Agent Alias ID:", AGENT_ALIAS_ID);
+      
+      // Hard-coded timeout for the entire operation - 20 seconds max
+      const timeoutMs = 20000;
+      
+      // Create a promise that will timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error(`Bedrock request timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      });
+      
+      // Create the main operation promise
+      const operationPromise = new Promise(async (resolve, reject) => {
+        try {
+          let completion = "";
+          
+          // Using try-catch here to handle any issues with client.send
+          try {
+            const response = await client.send(command);
+            
+            if (response.completion === undefined) {
+              console.error("Response received but completion is undefined");
+              resolve({ sessionId: finalSessionId, completion: fallbackCompletion.completion });
+              return;
+            }
+            
+            console.log("Received response from Bedrock agent, processing chunks...");
+            
+            // Use a simple try-catch here for the streaming part
+            try {
+              for await (const chunkEvent of response.completion) {
+                if (!chunkEvent || !chunkEvent.chunk || !chunkEvent.chunk.bytes) {
+                  console.warn("Received invalid chunk event");
+                  continue;
+                }
+                
+                try {
+                  const chunk = chunkEvent.chunk;
+                  const decodedResponse = new TextDecoder("utf-8").decode(chunk.bytes);
+                  completion += decodedResponse;
+                } catch (chunkError) {
+                  console.error("Error processing chunk:", chunkError);
+                  // Continue processing remaining chunks even if one fails
+                }
+              }
+              
+              console.log("Successfully processed all chunks from Bedrock agent");
+              resolve({ sessionId: finalSessionId, completion });
+            } catch (streamError) {
+              console.error("Error in streaming response:", streamError);
+              
+              // If we got partial completion, return it
+              if (completion) {
+                console.log("Returning partial completion due to streaming error, length:", completion.length);
+                resolve({ 
+                  sessionId: finalSessionId, 
+                  completion: completion + "\n\n[Response was truncated due to a connection issue]" 
+                });
+              } else {
+                // No completion at all, use fallback
+                resolve(fallbackCompletion);
+              }
+            }
+          } catch (sendError) {
+            console.error("Error in client.send:", sendError);
+            reject(sendError);
+          }
+        } catch (outerError) {
+          console.error("Outer error in operationPromise:", outerError);
+          reject(outerError);
+        }
+      });
+      
+      // Race between our operation and the timeout
+      const result = await Promise.race([operationPromise, timeoutPromise]);
+      return result;
+    } finally {
+      // Always remove the listener when done
+      process.removeListener('unhandledRejection', unhandledRejection);
     }
-    
-    console.log("Successfully processed all chunks from Bedrock agent");
-    return { sessionId: finalSessionId, completion };
-  } catch (err) {
-    console.error("Error in invokeBedrockAgent:", err);
-    console.error("Error details:", JSON.stringify({
-      name: err.name,
-      message: err.message,
-      code: err.code,
-      requestId: err.$metadata?.requestId,
-      statusCode: err.$metadata?.httpStatusCode
-    }, null, 2));
-    
-    // Return a more user-friendly error that won't crash the server
-    throw new Error(`AWS Bedrock error: ${err.message || 'Unknown error'}`);
+  } catch (error) {
+    console.error("Critical error in invokeBedrockAgent:", error);
+    // No matter what happens, don't let this function crash the server
+    return fallbackCompletion;
   }
 };
 
@@ -877,42 +950,51 @@ app.delete("/chat-session/:userId/:sessionId", (req, res) => {
   }
 });
 
-// Updated chat endpoint
+// Updated chat endpoint with advanced error handling
 app.post("/chat", async (req, res) => {
+  process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION - keeping process alive:', err);
+    // Attempt to respond to the client if possible
+    try {
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: "An unexpected error occurred",
+          details: "The server encountered an error but is still running"
+        });
+      }
+    } catch (responseErr) {
+      console.error('Error sending error response:', responseErr);
+    }
+  });
+
   try {
     const { question, userId, userHealthProfile, userData } = req.body;
     // Ensure we always have a valid sessionId
     const sessionId = req.body.sessionId || generateSessionId();
     
-    //let translatedQuestion = question;
-    //console.log(userData.language);
-
-    // Only translate if user's language is not English
-    //if (userData?.language && userData.language !== "english") {
-      //try {
-        //translatedQuestion = await lambdaTranslateEnglish(question, userData.language);
-        //console.log("Translated Question:", translatedQuestion);
-      //} catch (err) {
-        //console.error("Translation failed, using original question. Error:", err);
-      //}
-    //}
-
-    //console.log(translatedQuestion);
-
-
     if (!question) {
       return res.status(400).json({ error: "Missing question in request body." });
     }
 
-    const lambdaFilter = await filterWithLambda(question);
-
-    // If userId is provided, save the user message
+    // Save user message before any potentially failing operations
     if (userId) {
       const userMessage = {
         role: 'user',
         content: question
       };
       saveChatMessage(userId, sessionId, userMessage);
+    }
+
+    // Apply content filter
+    let lambdaFilter;
+    try {
+      lambdaFilter = await filterWithLambda(question);
+    } catch (filterError) {
+      console.error("Error in content filter:", filterError);
+      return res.status(400).json({ 
+        error: "Content filter error", 
+        details: filterError.message
+      });
     }
 
     // Always include health profile if it exists, check for keywords for biomarker data
@@ -932,15 +1014,20 @@ app.post("/chat", async (req, res) => {
     
     // Add biomarker data if keywords are found
     if (includeHealthData) {
-      const healthData = getRecentHealthData();
-      
-      console.log(`Biomarker data available: ${healthData && !healthData.error && !healthData.noData ? 'Yes' : 'No'}`);
-      
-      if (healthData && !healthData.error && !healthData.noData) {
-        additionalContext.healthData = healthData;
-        console.log(`Context: Including biomarker data`);
-      } else if (healthData.error) {
-        console.error("Error getting health data:", healthData.error);
+      try {
+        const healthData = getRecentHealthData();
+        
+        console.log(`Biomarker data available: ${healthData && !healthData.error && !healthData.noData ? 'Yes' : 'No'}`);
+        
+        if (healthData && !healthData.error && !healthData.noData) {
+          additionalContext.healthData = healthData;
+          console.log(`Context: Including biomarker data`);
+        } else if (healthData.error) {
+          console.error("Error getting health data:", healthData.error);
+        }
+      } catch (healthDataError) {
+        console.error("Error retrieving health data:", healthDataError);
+        // Continue without health data
       }
     }
     
@@ -954,33 +1041,108 @@ app.post("/chat", async (req, res) => {
     
     console.log(`===END DIAGNOSTIC: CHAT CONTEXT DECISION===`);
     
+    // Create a promise that will resolve after a timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error('Bedrock request timeout after 25 seconds'));
+      }, 25000); // 25 second timeout
+    });
+    
     try {
-      // Invoke the Bedrock agent with additional context
+      // Invoke the Bedrock agent with additional context and timeout
       console.log("Calling invokeBedrockAgent with sessionId:", sessionId);
-      const result = await invokeBedrockAgent(question, sessionId, additionalContext);
+      
+      // Add retry logic (max 2 retries)
+      let retryCount = 0;
+      const maxRetries = 2;
+      let result = null;
+      let lastError = null;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          // Wrap the Bedrock call in a race with the timeout
+          const bedrockPromise = invokeBedrockAgent(question, sessionId, additionalContext);
+          result = await Promise.race([bedrockPromise, timeoutPromise]);
+          
+          // If successful, break out of the retry loop
+          break;
+        } catch (error) {
+          lastError = error;
+          console.error(`Bedrock call attempt ${retryCount + 1}/${maxRetries + 1} failed:`, error.message);
+          
+          // Only retry certain types of errors (network, timeout, throttling)
+          if (error.name === 'TimeoutError' || 
+              error.name === 'NetworkError' || 
+              error.message.includes('throttl') || 
+              error.message.includes('timeout') ||
+              error.message.includes('network') ||
+              error.message.includes('connection')) {
+            retryCount++;
+            // Exponential backoff - wait longer between each retry
+            if (retryCount <= maxRetries) {
+              const delay = Math.pow(2, retryCount) * 500; // 1s, 2s, 4s, ...
+              console.log(`Retrying in ${delay}ms...`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+            }
+          } else {
+            // Don't retry other types of errors
+            throw error;
+          }
+        }
+      }
+      
+      // If all retries failed, throw the last error
+      if (!result) {
+        throw lastError || new Error("All retries failed with unknown error");
+      }
       
       // If userId is provided, save the assistant response
       if (userId) {
         const assistantMessage = {
           role: 'assistant',
-          content: result.completion
+          content: result.completion || "Sorry, I couldn't generate a response."
         };
         saveChatMessage(userId, sessionId, assistantMessage);
       }
       
       // For debugging, include in the response what data was included
       res.json({
-        response: result.completion,
-        sessionId: result.sessionId,
+        response: result.completion || "I apologize, but I couldn't generate a proper response at this time.",
+        sessionId: result.sessionId || sessionId,
         healthDataIncluded: additionalContext?.healthData ? true : false,
         profileDataIncluded: additionalContext?.userHealthProfile ? true : false
       });
     } catch (bedrock_error) {
       console.error("AWS Bedrock Agent Error:", bedrock_error);
+      console.error("Error stack:", bedrock_error.stack);
+      
+      // Create a user-friendly error message based on the type of error
+      let userErrorMessage = "There was a problem connecting to our AI service.";
+      
+      if (bedrock_error.name === 'ValidationException') {
+        userErrorMessage = "There was an issue with your request format.";
+      } else if (bedrock_error.name === 'AccessDeniedException') {
+        userErrorMessage = "There's an authentication issue with our AI service.";
+      } else if (bedrock_error.name === 'ThrottlingException') {
+        userErrorMessage = "The service is experiencing high demand. Please try again in a moment.";
+      } else if (bedrock_error.name === 'ServiceUnavailableException') {
+        userErrorMessage = "Our AI service is temporarily unavailable. Please try again later.";
+      } else if (bedrock_error.message.includes('timeout') || bedrock_error.message.includes('timed out')) {
+        userErrorMessage = "The request took too long to process. Please try a shorter message.";
+      }
+      
+      // If userId is provided, save the error response to chat history
+      if (userId) {
+        const errorMessage = {
+          role: 'assistant',
+          content: `Sorry, I encountered an error: ${userErrorMessage} Please try again later.`
+        };
+        saveChatMessage(userId, sessionId, errorMessage);
+      }
       
       // Return a more detailed error response
       res.status(500).json({ 
-        error: "Failed to get response from AWS Bedrock Agent.",
+        error: userErrorMessage,
         details: bedrock_error.message,
         errorType: bedrock_error.name || "Unknown",
         errorCode: bedrock_error.code || "Unknown"
@@ -988,10 +1150,18 @@ app.post("/chat", async (req, res) => {
     }
   } catch (error) {
     console.error("General error in chat endpoint:", error);
-    res.status(500).json({ 
-      error: "An error occurred processing your request.",
-      details: error.message
-    });
+    console.error("Error stack:", error.stack);
+    
+    try {
+      if (!res.headersSent) {
+        res.status(500).json({ 
+          error: "An error occurred processing your request.",
+          details: error.message
+        });
+      }
+    } catch (responseError) {
+      console.error("Error sending error response:", responseError);
+    }
   }
 });
 

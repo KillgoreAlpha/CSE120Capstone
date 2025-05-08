@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from "react-oidc-context";
 import {
   Layout,
@@ -14,9 +14,7 @@ import {
   Empty,
   Drawer,
   Menu,
-  Divider,
-  Tabs
-} from 'antd';
+  Divider} from 'antd';
 import {
   PlusOutlined,
   UserOutlined,
@@ -30,10 +28,8 @@ import {
   DashboardOutlined,
   SettingOutlined,
   FileTextOutlined,
-  PrinterOutlined,,
-  LineChartOutlined,
-  CommentOutlined
-} from '@ant-design/icons';
+  PrinterOutlined,
+  LineChartOutlined} from '@ant-design/icons';
 
 // Import our components
 import HealthDashboard from './components/HealthDashboard';

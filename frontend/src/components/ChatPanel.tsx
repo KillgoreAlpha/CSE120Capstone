@@ -211,7 +211,7 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
     try {
       // Add timeout to the fetch request
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 seconds timeout
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 seconds timeout
       
       const response = await fetch(`${API_BASE_URL}/chat`, {
         method: 'POST',
@@ -269,17 +269,25 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       
       // Get detailed error information if available
       let errorDetail = '';
+      let isBedrockError = false;
       
       try {
         // Try to parse the error response to get more details
         if (error.message.includes('JSON')) {
           errorDetail = 'Server response format error';
         } else if (error.response) {
-          const data = await error.response.json();
-          if (data.details) {
+          const response = error.response;
+          const data = await (typeof response.json === 'function' ? response.json() : JSON.parse(response));
+          
+          // Check if this is a Bedrock service error
+          if (data.errorType && data.errorType.includes('Bedrock')) {
+            isBedrockError = true;
+          }
+          
+          if (data.error) {
+            errorDetail = data.error; // Use user-friendly error from server
+          } else if (data.details) {
             errorDetail = data.details;
-          } else if (data.error) {
-            errorDetail = data.error;
           }
         }
       } catch (parseError) {
@@ -287,13 +295,19 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
       }
       
       // Create a more informative error message
-      const errorMessage = error.name === 'AbortError' 
-        ? 'The request timed out. The server may be busy or temporarily unavailable.'
-        : error.message.includes('Failed to fetch')
-          ? 'Cannot connect to server. Check your network connection.'
-          : errorDetail 
-            ? `Error: ${errorDetail}` 
-            : 'There was a problem communicating with the server. Please try again later.';
+      let errorMessage = '';
+      
+      if (error.name === 'AbortError') {
+        errorMessage = 'The request timed out. The server may be busy or temporarily unavailable.';
+      } else if (error.message.includes('Failed to fetch')) {
+        errorMessage = 'Cannot connect to server. Check your network connection.';
+      } else if (isBedrockError) {
+        errorMessage = errorDetail || 'There was an issue with the AI service. Your message will be processed when the service is available.';
+      } else if (errorDetail) {
+        errorMessage = `Error: ${errorDetail}`;
+      } else {
+        errorMessage = 'There was a problem communicating with the server. Please try again later.';
+      }
       
       // Add error message to chat
       const errorMessageObj = { 
@@ -301,6 +315,11 @@ const ChatPanel: React.FC<ChatPanelProps> = ({
         content: 'Sorry, I encountered an error processing your request: ' + errorMessage
       };
       setMessages(prev => [...prev, errorMessageObj]);
+      
+      // For Bedrock-specific errors, we can keep the server as "available" since the issue is with Bedrock, not our server
+      if (!isBedrockError && !error.name === 'AbortError' && !error.message.includes('Failed to fetch')) {
+        setServerAvailable(true); // Our server is likely still running
+      }
     } finally {
       setIsLoading(false);
     }
