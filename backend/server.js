@@ -16,6 +16,7 @@ import { TranscribeClient, StartTranscriptionJobCommand, GetTranscriptionJobComm
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { fileURLToPath } from 'url';
 import { LambdaClient, InvokeCommand } from "@aws-sdk/client-lambda";
+import { TranslateClient, TranslateTextCommand } from '@aws-sdk/client-translate';
 // Helper function to check if a user is in the administrators group
 async function checkUserInAdminGroup(username) {
   // In development, always return true
@@ -199,6 +200,13 @@ const lambda = new LambdaClient({
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
   }
 });
+const translateClient = new TranslateClient({ 
+  region: "us-east-2",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
+});
 
 async function filterWithLambda(query) {
   const command = new InvokeCommand({
@@ -216,19 +224,42 @@ async function filterWithLambda(query) {
   return payload;
 }
 
-//async function lambdaTranslateEnglish(query, lang) {
-  //const command = new InvokeCommand({
-    //FunctionName: "NonEnglishLocal",
-    //Payload: Buffer.from(JSON.stringify({ text: query, source_language: lang })),
-  //});
-
-  //const response = await lambda.send(command);
-
-  //const payload = JSON.parse(Buffer.from(response.Payload).toString());
-  //const parsed = typeof payload.body === 'string' ? JSON.parse(payload.body) : payload.body;
-
-//  return parsed.translated_text;
-//}
+async function translateText(text, sourceLang, targetLang) {
+  try {
+    // Convert language names to language codes expected by AWS Translate
+    const langCodeMap = {
+      'english': 'en',
+      'spanish': 'es',
+      'french': 'fr',
+      'german': 'de',
+      'italian': 'it',
+      'portuguese': 'pt',
+      'russian': 'ru',
+      'japanese': 'ja',
+      'chinese': 'zh',
+      'arabic': 'ar',
+      // Add more mappings as needed
+    };
+    
+    const sourceCode = langCodeMap[sourceLang] || sourceLang;
+    const targetCode = langCodeMap[targetLang] || targetLang;
+    
+    // If source language is 'auto', let AWS Translate detect it
+    const params = {
+      Text: text,
+      TargetLanguageCode: targetCode,
+      SourceLanguageCode: sourceCode
+    };
+    
+    const command = new TranslateTextCommand(params);
+    const response = await translateClient.send(command);
+    
+    return response.TranslatedText;
+  } catch (error) {
+    console.error('Translation error:', error);
+    throw new Error(`Failed to translate text: ${error.message}`);
+  }
+}
 
 // Consolidated prepared statements for reuse
 const statements = {
@@ -612,6 +643,7 @@ const invokeBedrockAgent = async (prompt, sessionId, additionalContext = null) =
         if (profile) {
           profileText += `Age: ${profile.age || 'Not specified'}\n`;
           profileText += `Gender: ${profile.gender || 'Not specified'}\n`;
+          profileText += `Language: ${profile.language || 'Not specified'}\n`;
           profileText += `Height: ${profile.height ? `${profile.height} cm` : 'Not specified'}\n`;
           profileText += `Weight: ${profile.weight ? `${profile.weight} kg` : 'Not specified'}\n`;
           profileText += `Pre-existing Conditions: ${profile.preExistingConditions?.length > 0 ? profile.preExistingConditions.join(', ') : 'None reported'}\n`;
@@ -1012,7 +1044,9 @@ app.post("/chat", async (req, res) => {
     // Ensure we always have a valid sessionId
     const sessionId = req.body.sessionId || generateSessionId();
     
-    if (!question) {
+    const translatedQuestion = await translateText(question, userHealthProfile.language, 'english');
+    
+    if (!translatedQuestion) {
       return res.status(400).json({ error: "Missing question in request body." });
     }
 
@@ -1028,7 +1062,7 @@ app.post("/chat", async (req, res) => {
     // Apply content filter
     let lambdaFilter;
     try {
-      lambdaFilter = await filterWithLambda(question);
+      lambdaFilter = await filterWithLambda(translatedQuestion);
     } catch (filterError) {
       console.error("Error in content filter:", filterError);
       return res.status(400).json({ 
@@ -1038,11 +1072,11 @@ app.post("/chat", async (req, res) => {
     }
 
     // Always include health profile if it exists, check for keywords for biomarker data
-    const includeHealthData = containsHealthDataKeywords(question);
+    const includeHealthData = containsHealthDataKeywords(translatedQuestion);
     let additionalContext = {};
     
     console.log(`===DIAGNOSTIC: CHAT CONTEXT DECISION===`);
-    console.log(`Question: "${question}"`);
+    console.log(`Question: "${translatedQuestion}"`);
     console.log(`Contains health keywords: ${includeHealthData}`);
     console.log(`User health profile data:`, userHealthProfile);
     
@@ -1101,7 +1135,7 @@ app.post("/chat", async (req, res) => {
       while (retryCount <= maxRetries) {
         try {
           // Wrap the Bedrock call in a race with the timeout
-          const bedrockPromise = invokeBedrockAgent(question, sessionId, additionalContext);
+          const bedrockPromise = invokeBedrockAgent(translatedQuestion, sessionId, additionalContext);
           result = await Promise.race([bedrockPromise, timeoutPromise]);
           
           // If successful, break out of the retry loop
@@ -1136,6 +1170,8 @@ app.post("/chat", async (req, res) => {
         throw lastError || new Error("All retries failed with unknown error");
       }
       
+      //result.completion = translateText(result.completion, 'english', userHealthProfile.language);
+      
       // If userId is provided, save the assistant response
       if (userId) {
         const assistantMessage = {
@@ -1145,9 +1181,17 @@ app.post("/chat", async (req, res) => {
         saveChatMessage(userId, sessionId, assistantMessage);
       }
       
+      let translatedResponse;
+      try {
+        translatedResponse = await translateText(result.completion, 'english', userHealthProfile.language);
+      } catch (e) {
+        console.error("Translation failed, falling back to original response.");
+        translatedResponse = result.completion;
+      }
+
       // For debugging, include in the response what data was included
       res.json({
-        response: result.completion || "I apologize, but I couldn't generate a proper response at this time.",
+        response: translatedResponse || "I apologize, but I couldn't generate a proper response at this time.",
         sessionId: result.sessionId || sessionId,
         healthDataIncluded: additionalContext?.healthData ? true : false,
         profileDataIncluded: additionalContext?.userHealthProfile ? true : false
@@ -1204,7 +1248,6 @@ app.post("/chat", async (req, res) => {
     }
   }
 });
-
 // Endpoint to query biomarker data within a timeframe
 app.get("/biomarker/:name", (req, res) => {
   try {
