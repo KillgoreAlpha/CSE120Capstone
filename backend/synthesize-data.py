@@ -1,3 +1,7 @@
+# This script generates synthetic biomarker data either in batch mode or streaming mode.
+# When in streaming mode, data is always saved to biomarker_data.csv regardless of the 
+# output file specified, ensuring the data is available for the frontend.
+
 import numpy as np
 import pandas as pd
 import datetime
@@ -7,6 +11,7 @@ import time
 import json
 import socket
 import threading
+import os
 from pathlib import Path
 
 def generate_biomarker_data_batch(
@@ -156,10 +161,20 @@ def generate_biomarker_data_batch(
     # Format timestamp as string
     df['timestamp'] = df['timestamp'].dt.strftime('%Y-%m-%d %H:%M:%S.%f')
     
-    # Save to CSV
-    df.to_csv(output_file, index=False)
-    print(f"Generated {total_samples} samples ({duration_seconds} seconds at {sample_rate}Hz)")
-    print(f"Data saved to {output_file}")
+    # Save to CSV with append mode
+    # Check if file exists to determine whether to write headers
+    file_exists = os.path.isfile(output_file)
+    
+    if file_exists:
+        # Append without headers
+        df.to_csv(output_file, index=False, mode='a', header=False)
+        print(f"Generated {total_samples} samples ({duration_seconds} seconds at {sample_rate}Hz)")
+        print(f"Data appended to {output_file}")
+    else:
+        # Create new file with headers
+        df.to_csv(output_file, index=False)
+        print(f"Generated {total_samples} samples ({duration_seconds} seconds at {sample_rate}Hz)")
+        print(f"New data file created at {output_file}")
     
     return df
 
@@ -253,36 +268,45 @@ def generate_single_reading(
     blood_oxygen = np.clip(blood_oxygen, 95, 100)
     
     return {
-        'cortisol_base': cortisol,
-        'lactate_base': lactate,
-        'uric_acid_base': uric_acid,
-        'crp_base': crp,
-        'il6_base': il6,
-        'body_temp_base': body_temp,
-        'heart_rate_base': heart_rate,
-        'blood_oxygen_base': blood_oxygen,
-        'timestamp': timestamp.strftime('%Y-%m-%d %H:%M:%S.%f')
+        'timestamp': timestamp.strftime('%Y-%m-%d %H:%M:%S.%f'),
+        'cortisol_ug_dL': cortisol,
+        'lactate_mmol_L': lactate,
+        'uric_acid_mg_dL': uric_acid,
+        'crp_mg_L': crp,
+        'il6_pg_mL': il6,
+        'body_temp_C': body_temp,
+        'heart_rate_BPM': heart_rate,
+        'blood_oxygen_pct': blood_oxygen
     }
 
 def stream_biomarker_data(
     server_url='http://localhost:3000/readings',
-    interval=1.0,
-    duration_hours=None,
+    stream_interval=0.2,  # Stream to server every 0.2 seconds (5Hz) - increased from 0.5s
+    sample_rate=50,       # Generate data at 50Hz
+    duration_hours=None,  # None means run indefinitely
     add_noise=True,
     add_trend=True,
     verbose=True,
     websocket_port=None,
-    test_mode=False
+    test_mode=False,
+    save_csv=True,
+    output_file='biomarker_data.csv',  # Default output file changed to be consistent
+    csv_update_interval=100,  # Update CSV after 100 samples (every 2 seconds at 50Hz)
+    batch_duration_seconds=60,
+    batch_sample_rate=50,     # Batch generation at 50Hz
+    batch_output_file=None
 ):
     """
-    Stream biomarker data to server in real-time.
+    Stream biomarker data to server in real-time and optionally save to CSV.
     
     Parameters:
     -----------
     server_url : str
         URL to send data to
-    interval : float
-        Time between readings in seconds
+    stream_interval : float
+        Time between streaming readings to server (default: 0.5 seconds - 2Hz)
+    sample_rate : int
+        Rate at which to generate and save data (default: 50Hz)
     duration_hours : float or None
         Total duration to stream (None for indefinite)
     add_noise : bool
@@ -295,14 +319,40 @@ def stream_biomarker_data(
         Port for WebSocket server (None to disable)
     test_mode : bool
         If True, don't actually send data to server
+    save_csv : bool
+        Whether to save the streamed data to a CSV file
+    output_file : str
+        Path to save the streaming CSV output
+    csv_update_interval : int
+        Number of readings before updating the CSV file
+    batch_duration_seconds : int
+        Duration in seconds for batch generation
+    batch_sample_rate : int
+        Sample rate in Hz for batch generation
+    batch_output_file : str
+        Path to save the batch CSV output
     """
     if verbose:
         print(f"Starting biomarker data streaming to {server_url}")
-        print(f"Streaming interval: {interval} seconds")
+        print(f"Data generation rate: {sample_rate}Hz")
+        print(f"Server streaming rate: Every {stream_interval} seconds ({1/stream_interval}Hz)")
         if duration_hours:
             print(f"Total duration: {duration_hours} hours")
         else:
             print("Streaming indefinitely (press Ctrl+C to stop)")
+        if save_csv:
+            print(f"Saving generated data to CSV: {output_file}")
+            print(f"CSV update frequency: Every {csv_update_interval} samples")
+        
+        # Generate initial batch file if batch_output_file is specified
+        if batch_output_file:
+            # Warn if batch output is same as main output
+            if batch_output_file == output_file:
+                print(f"Warning: Batch output file is the same as streaming output file ({output_file}).")
+                print("One will overwrite the other. Consider using different output files.")
+            else:
+                print(f"Generating initial batch data to: {batch_output_file}")
+                print(f"Batch settings: {batch_duration_seconds} seconds at {batch_sample_rate}Hz")
         
     start_time = datetime.datetime.now()
     reading_count = 0
@@ -318,6 +368,32 @@ def stream_biomarker_data(
     if websocket_port:
         print(f"Note: Custom WebSocket server on port {websocket_port} is not needed.")
         print("Data will be broadcast through the main server's WebSocket implementation.")
+    
+    # Create a list to store all readings for CSV export
+    all_readings = []
+    
+    # Create output directories if they don't exist
+    if save_csv:
+        output_path = Path(output_file)
+        output_dir = output_path.parent
+        if output_dir and not output_dir.exists():
+            output_dir.mkdir(parents=True, exist_ok=True)
+            
+    if batch_output_file:
+        batch_path = Path(batch_output_file)
+        batch_dir = batch_path.parent
+        if batch_dir and not batch_dir.exists():
+            batch_dir.mkdir(parents=True, exist_ok=True)
+            
+    # Generate initial batch file if requested
+    if batch_output_file:
+        generate_biomarker_data_batch(
+            duration_seconds=batch_duration_seconds,
+            sample_rate=batch_sample_rate,
+            output_file=batch_output_file,
+            add_noise=add_noise,
+            add_trend=add_trend
+        )
     
     try:
         while True:
@@ -339,6 +415,10 @@ def stream_biomarker_data(
                 time_offset=time_offset
             )
             
+            # Store reading for CSV export
+            if save_csv:
+                all_readings.append(reading)
+            
             # Send data to server
             if not test_mode:
                 try:
@@ -350,18 +430,39 @@ def stream_biomarker_data(
                     if verbose:
                         print(f"Error sending data to server: {e}")
             
-            # No need to directly send data to WebSocket clients since 
-            # the server will handle broadcasting to all connected clients
-            # when we send data to the /readings endpoint
-            
             # Print progress
             reading_count += 1
             if verbose and reading_count % 10 == 0:
                 print(f"Sent {reading_count} readings to server")
+            
+            # Periodically update CSV file - always update biomarker_data.csv
+            if save_csv and reading_count % csv_update_interval == 0:
+                df = pd.DataFrame(all_readings)
+                
+                # Append to output_file
+                file_exists = os.path.isfile(output_file)
+                if file_exists:
+                    df.to_csv(output_file, mode='a', header=False, index=False)
+                else:
+                    df.to_csv(output_file, index=False)
+                
+                # Always save to biomarker_data.csv regardless of output_file
+                if output_file != 'biomarker_data.csv':
+                    file_exists = os.path.isfile('biomarker_data.csv')
+                    if file_exists:
+                        df.to_csv('biomarker_data.csv', mode='a', header=False, index=False)
+                    else:
+                        df.to_csv('biomarker_data.csv', index=False)
+                
+                if verbose:
+                    print(f"Appended {len(all_readings)} readings to CSV file(s)")
+                
+                # Clear the all_readings list to avoid appending the same data multiple times
+                all_readings = []
                 
             # Control timing
-            time_offset += interval
-            sleep_time = interval - ((datetime.datetime.now() - current_time).total_seconds())
+            time_offset += stream_interval
+            sleep_time = stream_interval - ((datetime.datetime.now() - current_time).total_seconds())
             if sleep_time > 0:
                 time.sleep(sleep_time)
                 
@@ -369,6 +470,31 @@ def stream_biomarker_data(
         if verbose:
             print("\nStreaming stopped by user")
     finally:
+        # Save final CSV
+        if save_csv and all_readings:
+            df = pd.DataFrame(all_readings)
+            
+            # Append to output_file
+            file_exists = os.path.isfile(output_file)
+            if file_exists:
+                df.to_csv(output_file, mode='a', header=False, index=False)
+            else:
+                df.to_csv(output_file, index=False)
+                
+            # Always save to biomarker_data.csv regardless of output_file
+            if output_file != 'biomarker_data.csv':
+                file_exists = os.path.isfile('biomarker_data.csv')
+                if file_exists:
+                    df.to_csv('biomarker_data.csv', mode='a', header=False, index=False)
+                else:
+                    df.to_csv('biomarker_data.csv', index=False)
+                    
+                if verbose:
+                    print(f"Appended final {len(all_readings)} readings to {output_file} and biomarker_data.csv")
+            else:
+                if verbose:
+                    print(f"Appended final {len(all_readings)} readings to {output_file}")
+        
         if verbose:
             print(f"Sent a total of {reading_count} readings over {(datetime.datetime.now() - start_time).total_seconds() / 60:.2f} minutes")
 
@@ -395,8 +521,10 @@ if __name__ == "__main__":
     stream_parser = subparsers.add_parser('stream', help='Stream data to server in real-time')
     stream_parser.add_argument('--server', type=str, default='http://localhost:3000/readings',
                            help='Server URL to send data to (default: http://localhost:3000/readings)')
-    stream_parser.add_argument('--interval', type=float, default=1.0,
-                           help='Interval between readings in seconds (default: 1.0)')
+    stream_parser.add_argument('--stream-interval', type=float, default=0.2,
+                           help='Interval between streaming to server in seconds (default: 0.2 - five times per second)')
+    stream_parser.add_argument('--sample-rate', type=int, default=50,
+                           help='Rate at which to generate and save data in Hz (default: 50Hz)')
     stream_parser.add_argument('--duration', type=float, default=None,
                            help='Duration to stream in hours (default: indefinite)')
     stream_parser.add_argument('--no-noise', action='store_false', dest='noise',
@@ -409,6 +537,22 @@ if __name__ == "__main__":
                            help='Enable WebSocket server on specified port')
     stream_parser.add_argument('--test', action='store_true', dest='test_mode',
                            help='Test mode - don\'t actually send data to server')
+    stream_parser.add_argument('--no-csv', action='store_false', dest='save_csv',
+                           help='Disable saving generated data to CSV')
+    stream_parser.add_argument('--output', type=str, default='biomarker_data.csv',
+                           help='Output CSV file path (default: biomarker_data.csv)')
+    stream_parser.add_argument('--csv-update-interval', type=int, default=100,
+                           help='Number of readings before updating the CSV file (default: 100)')
+    
+    # Additional batch generation parameters for streaming mode
+    stream_parser.add_argument('--batch-generate', action='store_true',
+                           help='Also generate a batch file when streaming')
+    stream_parser.add_argument('--batch-output', type=str, default=None,
+                           help='Output file for batch generation (default: biomarker_batch.csv)')
+    stream_parser.add_argument('--batch-duration', type=int, default=60,
+                           help='Duration in seconds for batch generation (default: 60)')
+    stream_parser.add_argument('--batch-rate', type=int, default=50,
+                           help='Sample rate in Hz for batch generation (default: 50Hz)')
     
     args = parser.parse_args()
     
@@ -429,14 +573,25 @@ if __name__ == "__main__":
             add_trend=args.trend if hasattr(args, 'trend') else True
         )
     elif args.command == 'stream':
+        # If batch-generate is requested but no output specified, set a default
+        if args.batch_generate and not args.batch_output:
+            args.batch_output = 'biomarker_batch.csv'
+            
         # Stream data to server
         stream_biomarker_data(
             server_url=args.server,
-            interval=args.interval,
-            duration_hours=args.duration,
+            stream_interval=args.stream_interval,
+            sample_rate=args.sample_rate,
+            duration_hours=args.duration,  # None means run indefinitely
             add_noise=args.noise,
             add_trend=args.trend,
             verbose=args.verbose,
             websocket_port=args.websocket,
-            test_mode=args.test_mode
+            test_mode=args.test_mode,
+            save_csv=args.save_csv,
+            output_file=args.output,
+            csv_update_interval=args.csv_update_interval,
+            batch_duration_seconds=args.batch_duration if args.batch_generate else None,
+            batch_sample_rate=args.batch_rate,
+            batch_output_file=args.batch_output
         )

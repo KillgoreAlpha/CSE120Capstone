@@ -265,8 +265,8 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
                 dataBuffer.current.push(newPoint);
                 
                 // Process buffer immediately if we have enough points or enough time has passed
-                const updateInterval = 1000; // Minimum time between state updates in ms
-                if (dataBuffer.current.length >= 5 || (Date.now() - lastUpdateTime.current) > updateInterval) {
+                const updateInterval = 200; // Minimum time between state updates in ms (reduced from 1000ms)
+                if (dataBuffer.current.length >= 2 || (Date.now() - lastUpdateTime.current) > updateInterval) {
                   processBuffer.current();
                 }
               } else {
@@ -297,7 +297,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
               }
               
               // For development/testing, generate a simulated point occasionally
-              if (import.meta.env.DEV && (!ws.lastSimulationTime || (now - ws.lastSimulationTime) > 5000)) {
+              if (import.meta.env.DEV && (!ws.lastSimulationTime || (now - ws.lastSimulationTime) > 1000)) {
                 const simPoint = generateSimulatedDataPoint();
                 dataBuffer.current.push(simPoint);
                 processBuffer.current();
@@ -357,7 +357,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
     setTimeout(connectWebSocket, connectionDelay);
     
     // Set up interval to process buffer - need to use window.setInterval for proper cleanup
-    const updateInterval = 1000; // Minimum time between state updates in ms
+    const updateInterval = 200; // Minimum time between state updates in ms (reduced from 1000ms)
     bufferIntervalRef.current = window.setInterval(() => {
       if (isMounted.current) {
         processBuffer.current();
@@ -378,7 +378,7 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
             processBuffer.current();
           }
         }
-      }, 5000); // Add simulated data every 5 seconds in dev mode
+      }, 1000); // Add simulated data every 1 second in dev mode (reduced from 5 seconds)
       
       // Save reference for cleanup
       intervalRef.current = simulationInterval;
@@ -481,10 +481,10 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
     },
     layout: {
       padding: {
-        left: 0,
-        right: 2,
-        top: 2,
-        bottom: 0
+        left: 5,
+        right: 5,
+        top: 5,
+        bottom: 5
       }
     },
     scales: {
@@ -497,25 +497,22 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
           }
         },
         title: {
-          display: false, // Removed title to save space
+          display: false,
         },
-        // Set static time window range instead of dynamic calculation on every render
-        // Using fixed time window to prevent chart.js from auto-scaling and potentially dropping points
+        // Set static time window range
         min: function() {
           return new Date(Date.now() - 60000); // Display last 60 seconds
         },
         max: function() {
           return new Date(); // Current time
         },
-        // Define adapter options inline instead of using locale
         adapters: {
           date: {
-            // Use explicit date/time formats instead of locale
             formats: {
-              datetime: 'MMM d, yyyy h:mm:ss a',
-              millisecond: 'h:mm:ss.SSS a',
-              second: 'h:mm:ss a',
-              minute: 'h:mm a',
+              datetime: 'MMM d, h:mm:ss',
+              millisecond: 'h:mm:ss',
+              second: 'h:mm:ss',
+              minute: 'h:mm',
               hour: 'ha',
               day: 'MMM d',
               week: 'PP',
@@ -527,32 +524,33 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         },
         grid: {
           display: true,
-          color: 'rgba(0,0,0,0.1)'
+          color: 'rgba(0,0,0,0.05)'
         },
         ticks: {
-          maxRotation: 0, // Prevent label rotation
-          autoSkip: true, // Skip labels that would overlap
-          maxTicksLimit: 4, // Limit number of ticks to avoid clutter
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 3, // Reduced number of ticks
           font: {
-            size: 10 // Smaller font size
-          }
+            size: 14 // Increased font size from 9 to 14
+          },
+          padding: 5 // Increased padding for better readability
         }
       },
       y: {
         beginAtZero: false,
         title: {
-          display: false, // Removed title to save space
+          display: false,
         },
         grid: {
           display: true,
-          color: 'rgba(0,0,0,0.1)'
+          color: 'rgba(0,0,0,0.05)'
         },
         ticks: {
           font: {
-            size: 10 // Smaller font size
+            size: 14 // Increased font size from 9 to 14
           },
-          maxTicksLimit: 5, // Limit number of ticks
-          padding: 2 // Reduced padding
+          maxTicksLimit: 5, // Increased number of ticks for better readability
+          padding: 5 // Increased padding
         }
       }
     },
@@ -567,7 +565,14 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
         bodyColor: 'white',
         borderColor: 'white',
         borderWidth: 1,
-        padding: 6, // Reduced padding
+        padding: 8, // Increased padding
+        displayColors: false,
+        titleFont: {
+          size: 14 // Increased font size from 11 to 14
+        },
+        bodyFont: {
+          size: 14 // Increased font size from 11 to 14
+        },
         callbacks: {
           title: (context: any) => {
             const date = new Date(context[0].parsed.x);
@@ -578,11 +583,13 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
     },
     elements: {
       line: {
-        tension: 0.1 // Reduce line tension for better performance
+        tension: 0.1, // Reduce line tension for better performance
+        borderWidth: 2 // Increased from 1.5 to 2 for better visibility
       },
       point: {
-        radius: showPoints ? 2 : 0, // Smaller points for better performance
-        hitRadius: 8
+        radius: showPoints ? 3 : 0, // Increased point size from 1.5 to 3
+        hitRadius: 10,
+        hoverRadius: 6 // Increased from 4 to 6
       }
     }
   }), [label, showPoints]); // Only recreate when these props change
@@ -590,13 +597,14 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
   return (
     <div style={{ 
       width: '100%', 
-      height: '100%', // Changed from fixed height to responsive
-      margin: '0 auto',
-      overflow: 'hidden', // Changed back to hidden to prevent overflow
+      height: '100%',
+      minHeight: '220px',
+      margin: '0',
+      overflow: 'hidden',
       border: '1px solid #eee',
       borderRadius: '8px',
-      padding: '12px', // Reduced padding
-      boxSizing: 'border-box', // Ensure padding is included in element dimensions
+      padding: '10px',
+      boxSizing: 'border-box',
       boxShadow: '0 2px 6px rgba(0,0,0,0.08)',
       backgroundColor: 'white',
       display: 'flex',
@@ -604,9 +612,10 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
     }}>
       <h3 style={{ 
         textAlign: 'center', 
-        margin: '0 0 8px 0', // Reduced margin
-        color: '#333',
-        fontSize: '16px', // Smaller font size
+        margin: '0 0 8px 0',
+        color: '#222',
+        fontSize: '18px',
+        fontWeight: '600',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis'
@@ -620,8 +629,8 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
           color: '#666',
           flexDirection: 'column'
         }}>
-          <div>Loading biomarker data...</div>
-          <div style={{ fontSize: '12px', marginTop: '8px', color: '#999' }}>
+          <div style={{ fontSize: '15px' }}>Loading biomarker data...</div>
+          <div style={{ fontSize: '14px', marginTop: '10px', color: '#666' }}>
             Connecting to WebSocket server...
           </div>
         </div>
@@ -642,16 +651,16 @@ const LiveDataGraph: React.FC<LiveDataGraphProps> = ({
       )}
       <div style={{ 
         textAlign: 'center', 
-        fontSize: '10px', // Smaller font
+        fontSize: '12px',
         color: '#666', 
-        marginTop: '4px', // Reduced margin
-        padding: '2px', // Reduced padding
+        marginTop: '4px',
+        padding: '3px',
         borderTop: '1px solid #f0f0f0',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis'
       }}>
-        Since {streamStartTime.current.toLocaleTimeString()} • {dataPoints.length} points
+        {dataPoints.length} points • since {streamStartTime.current.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
       </div>
     </div>
   );
