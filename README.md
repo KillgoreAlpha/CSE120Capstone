@@ -51,7 +51,7 @@ VITE_REDIRECT_URI=http://localhost:5173
 
 For AWS integration, you'll need to set up additional environment variables:
 ```
-AWS_REGION=us-east-2
+AWS_REGION=your_aws_region
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
 AGENT_ID=your_bedrock_agent_id
