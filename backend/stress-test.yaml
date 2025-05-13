@@ -1,0 +1,18 @@
+config:
+  target: https://localhost:3000
+  phases:
+    - duration: 60        # Run for 60 seconds
+      arrivalRate: 10     # 10 new users per second (ramp up slowly in real tests)
+  defaults:
+    headers:
+      Content-Type: application/json
+      Authorization: AWS_SESSION_TOKEN
+
+scenarios:
+  - name: Test Bedrock Agent Through API
+    flow:
+      - post:
+          url: /chat
+          json:
+            inputText: >
+              I have inflammation
